@@ -1,7 +1,3 @@
-export default function Header({ title }) {
-  return (
-    <header style={{ padding: "1rem", backgroundColor: "#1f2937", color: "white" }}>
-      <h1>{title}</h1>
-    </header>
-  );
+export default function Header({ children, className = "custom-header", ...props }) {
+  return <header className={className} {...props}>{children}</header>;
 }
