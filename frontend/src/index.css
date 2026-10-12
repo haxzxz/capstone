@@ -9,8 +9,30 @@
   font-optical-sizing: auto;
 }
 
-* { box-sizing: border-box; }
-html, body, #root { min-width: 320px; min-height: 100%; margin: 0; }
-body { min-width: 320px; min-height: 100vh; }
-button, select { font: inherit; }
-button:focus-visible, select:focus-visible { outline: 3px solid rgba(32,184,137,.55); outline-offset: 2px; }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+select {
+  font: inherit;
+}
+
+button:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(32, 184, 137, .55);
+  outline-offset: 2px;
+}

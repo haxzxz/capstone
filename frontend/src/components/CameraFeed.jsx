@@ -16,6 +16,7 @@ export default function CameraFeed({
   onStart,
   onStop,
   clock,
+  processedFrame,
 }) {
   const live = status === "live";
   const offlineContent = statusLabels[status] ?? statusLabels.idle;
@@ -37,6 +38,7 @@ export default function CameraFeed({
 
       <div className="camera-view">
         <video ref={videoRef} autoPlay playsInline muted className="camera-video" style={{ opacity: live ? 1 : 0 }} />
+        {live && processedFrame && <img className="camera-processed-frame" src={processedFrame} alt="Camera frame with Python person detections" />}
         <div className="view-vignette" />
         {live && <div className="view-grid" />}
         {!live && (
