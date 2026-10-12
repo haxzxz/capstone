@@ -17,6 +17,7 @@ export default function CameraFeed({
   onStop,
   clock,
   processedFrame,
+  cameraFps = 0,
 }) {
   const live = status === "live";
   const offlineContent = statusLabels[status] ?? statusLabels.idle;
@@ -49,7 +50,7 @@ export default function CameraFeed({
             <button className="primary-button" onClick={onStart}>Start camera</button>
           </div>
         )}
-        {live && <div className="feed-overlay"><span><i />REC</span><span>{clock.toLocaleTimeString([], { hour12: false })}</span></div>}
+        {live && <div className="feed-overlay"><span><i />REC</span><span className="camera-fps">CAM {cameraFps || "—"} FPS</span><span>{clock.toLocaleTimeString([], { hour12: false })}</span></div>}
         {live && <button className="expand-button" title="Fullscreen" onClick={() => videoRef.current?.parentElement?.requestFullscreen?.()}><Icon name="expand" /></button>}
       </div>
 

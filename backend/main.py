@@ -8,10 +8,13 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, ImageDraw
+import torch
 from ultralytics import YOLO
 
 
-MODEL_PATH = os.getenv("YOLO_MODEL", "yolov8n.pt")
+MODEL_PATH = os.getenv("YOLO_MODEL", "yolo11n.pt")
+DEVICE = os.getenv("YOLO_DEVICE", "0")
+IMAGE_SIZE = int(os.getenv("YOLO_IMAGE_SIZE", "416"))
 CONFIDENCE_THRESHOLD = float(os.getenv("DETECTION_CONFIDENCE", "0.35"))
 MAX_FRAME_BYTES = 8 * 1024 * 1024
 
@@ -34,13 +37,44 @@ person_was_present = False
 def get_model():
     global model
     if model is None:
-        model = YOLO(MODEL_PATH)
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "CUDA is unavailable to PyTorch. Install a CUDA-enabled PyTorch build "
+                "and verify that the NVIDIA driver is available."
+            )
+        loaded_model = YOLO(MODEL_PATH)
+        loaded_model.to(f"cuda:{DEVICE}" if DEVICE.isdigit() else DEVICE)
+        loaded_model.predict(
+            Image.new("RGB", (IMAGE_SIZE, IMAGE_SIZE)),
+            device=DEVICE,
+            imgsz=IMAGE_SIZE,
+            quantize=16,
+            classes=[0],
+            verbose=False,
+        )
+        torch.cuda.synchronize()
+        model = loaded_model
     return model
 
 
+def gpu_status():
+    available = torch.cuda.is_available()
+    return {
+        "available": available,
+        "device": torch.cuda.get_device_name(int(DEVICE)) if available and DEVICE.isdigit() else None,
+        "cuda_runtime": torch.version.cuda,
+    }
+
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "model": MODEL_PATH, "model_loaded": model is not None}
+    gpu = gpu_status()
+    return {
+        "status": "ok" if gpu["available"] else "gpu_unavailable",
+        "model": MODEL_PATH,
+        "model_loaded": model is not None,
+        "device": f"cuda:{DEVICE}" if gpu["available"] else None,
+        "gpu": gpu,
+    }
 
 
 @app.get("/api/summary")
@@ -48,6 +82,8 @@ def summary():
     return {
         "status": "ready" if model is not None else "standby",
         "model": MODEL_PATH,
+        "device": f"cuda:{DEVICE}" if model is not None else None,
+        "gpu": gpu_status(),
         "uptime_seconds": round(time.monotonic() - started_at),
         "people_seen": people_seen,
         "events": list(event_log),
@@ -57,6 +93,7 @@ def summary():
 @app.post("/api/detect")
 async def detect(request: Request):
     global people_seen, person_was_present
+    request_started_at = time.perf_counter()
     image_bytes = await request.body()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="No camera frame was provided.")
@@ -68,7 +105,20 @@ async def detect(request: Request):
         raise HTTPException(status_code=400, detail="Frame must be a valid JPEG or PNG image.") from error
 
     try:
-        result = get_model().predict(image, conf=CONFIDENCE_THRESHOLD, verbose=False)[0]
+        loaded_model = get_model()
+        torch.cuda.synchronize()
+        inference_started_at = time.perf_counter()
+        result = loaded_model.predict(
+            image,
+            conf=CONFIDENCE_THRESHOLD,
+            device=DEVICE,
+            imgsz=IMAGE_SIZE,
+            quantize=16,
+            classes=[0],
+            verbose=False,
+        )[0]
+        torch.cuda.synchronize()
+        inference_ms = (time.perf_counter() - inference_started_at) * 1000
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"Detection model failed: {error}") from error
 
@@ -102,14 +152,18 @@ async def detect(request: Request):
     output = io.BytesIO()
     image.save(output, format="JPEG", quality=82)
     annotated = base64.b64encode(output.getvalue()).decode("ascii")
+    request_ms = (time.perf_counter() - request_started_at) * 1000
     return {
         "timestamp": now,
         "model": MODEL_PATH,
+        "device": f"cuda:{DEVICE}",
         "detections": detections,
         "count": len(detections),
         "average_confidence": round(sum(item["confidence"] for item in detections) / len(detections), 1) if detections else None,
         "total_people_seen": people_seen,
         "inference_fps": round(fps, 1),
+        "inference_ms": round(inference_ms, 1),
+        "request_ms": round(request_ms, 1),
         "annotated_frame": f"data:image/jpeg;base64,{annotated}",
         "events": list(event_log)[:10],
     }

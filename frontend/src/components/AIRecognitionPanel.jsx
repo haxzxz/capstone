@@ -9,6 +9,9 @@ export default function AIRecognitionPanel({
   detectionZone = "Not configured",
   schoolSchedule = "Not configured",
   inferenceRate = "—",
+  inferenceMs,
+  requestMs,
+  roundTripMs,
   zoneIntersections = "—",
 }) {
   return (
@@ -30,7 +33,10 @@ export default function AIRecognitionPanel({
       <div className="metric-list">
         <div><span>Detection zone</span><strong><i className="status-neutral" />{detectionZone}</strong></div>
         <div><span>School schedule</span><strong><i className="status-neutral" />{schoolSchedule}</strong></div>
-        <div><span>Inference rate</span><strong>{inferenceRate} <small>FPS</small></strong></div>
+        <div><span>Processed rate</span><strong>{inferenceRate} <small>FPS</small></strong></div>
+        <div><span>Model inference</span><strong>{inferenceMs ?? "—"} <small>ms</small></strong></div>
+        <div><span>API processing</span><strong>{requestMs ?? "—"} <small>ms</small></strong></div>
+        <div><span>Browser round trip</span><strong>{roundTripMs != null ? Math.round(roundTripMs) : "—"} <small>ms</small></strong></div>
         <div><span>Zone intersections</span><strong>{zoneIntersections} <small>events</small></strong></div>
       </div>
     </section>

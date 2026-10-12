@@ -16,6 +16,51 @@ export default function Cam() {
   const [serviceMessage, setServiceMessage] = useState("Checking Python detection service…");
   const [result, setResult] = useState(null);
   const [events, setEvents] = useState([]);
+  const [cameraFps, setCameraFps] = useState(0);
+
+  useEffect(() => {
+    const video = camera.videoRef.current;
+    if (camera.status !== "live" || !video) {
+      setCameraFps(0);
+      return undefined;
+    }
+
+    let callbackId;
+    let sampleTimer;
+    let frameCount = 0;
+    let sampleStartedAt = performance.now();
+    let previousTotalFrames = video.getVideoPlaybackQuality?.().totalVideoFrames ?? 0;
+
+    if (video.requestVideoFrameCallback) {
+      const countFrame = (now) => {
+        frameCount += 1;
+        const elapsed = now - sampleStartedAt;
+        if (elapsed >= 1000) {
+          setCameraFps(Math.round((frameCount * 1000) / elapsed));
+          frameCount = 0;
+          sampleStartedAt = now;
+        }
+        callbackId = video.requestVideoFrameCallback(countFrame);
+      };
+      callbackId = video.requestVideoFrameCallback(countFrame);
+    } else {
+      sampleTimer = window.setInterval(() => {
+        const totalFrames = video.getVideoPlaybackQuality?.().totalVideoFrames;
+        const now = performance.now();
+        const elapsed = now - sampleStartedAt;
+        if (totalFrames != null && elapsed > 0) {
+          setCameraFps(Math.round(((totalFrames - previousTotalFrames) * 1000) / elapsed));
+          previousTotalFrames = totalFrames;
+          sampleStartedAt = now;
+        }
+      }, 1000);
+    }
+
+    return () => {
+      if (callbackId != null) video.cancelVideoFrameCallback?.(callbackId);
+      window.clearInterval(sampleTimer);
+    };
+  }, [camera.status, camera.videoRef]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(new Date()), 1000);
@@ -32,18 +77,20 @@ export default function Cam() {
       busy = true;
       try {
         const canvas = canvasRef.current;
-        const scale = Math.min(1, 960 / video.videoWidth);
+        const scale = Math.min(1, 640 / video.videoWidth);
         canvas.width = Math.round(video.videoWidth * scale);
         canvas.height = Math.round(video.videoHeight * scale);
         canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
         const frame = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.78));
         if (!frame) return;
+        const requestStartedAt = performance.now();
         const response = await fetch("/api/detect", { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: frame });
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
           throw new Error(body.detail || `Detection service returned ${response.status}`);
         }
         const data = await response.json();
+        data.round_trip_ms = performance.now() - requestStartedAt;
         if (!active) return;
         setResult(data);
         setEvents(data.events || []);
@@ -58,7 +105,7 @@ export default function Cam() {
     };
     if (camera.status === "live") {
       processFrame();
-      timer = window.setInterval(processFrame, 850);
+      timer = window.setInterval(processFrame, 250);
     }
     return () => { active = false; window.clearInterval(timer); };
   }, [camera.status, camera.videoRef]);
@@ -92,6 +139,7 @@ export default function Cam() {
               onStop={camera.stop}
               clock={clock}
               processedFrame={result?.annotated_frame}
+              cameraFps={cameraFps}
             />
             <StatsGrid stats={[
               { label: "Pedestrians detected", value: result?.total_people_seen ?? "—", note: result ? `${result.count} in current frame` : "Awaiting AI inference", icon: "scan", tone: "tone-blue" },
@@ -102,14 +150,17 @@ export default function Cam() {
 
           <aside className="insights-column" aria-label="AI recognition status">
             <AIRecognitionPanel
-              modelName={result?.model || "YOLOv8n"}
-              modelDescription="Python person detection model"
+              modelName={result?.model || "YOLO11n"}
+              modelDescription="Python person detection model · GPU inference"
               status={serviceState === "live" ? "LIVE" : serviceState === "error" ? "OFFLINE" : "CONNECTING"}
               statusMessage={serviceState === "live" ? "Detection feed active" : serviceState === "error" ? "Detection service unavailable" : "Connecting to Python service"}
               statusDetail={serviceMessage}
               detectionZone={result?.count ? "Person detected" : result ? "Clear" : "Waiting for feed"}
               schoolSchedule="Not configured"
               inferenceRate={result?.inference_fps ?? "—"}
+              inferenceMs={result?.inference_ms}
+              requestMs={result?.request_ms}
+              roundTripMs={result?.round_trip_ms}
               zoneIntersections={result?.count ?? "—"}
             />
             <RecentDetectionsPanel events={events} unavailable={serviceState !== "live"} />
