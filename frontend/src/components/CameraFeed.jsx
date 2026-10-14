@@ -16,7 +16,9 @@ export default function CameraFeed({
   onStart,
   onStop,
   clock,
-  processedFrame,
+  detections = [],
+  frameWidth,
+  frameHeight,
   cameraFps = 0,
 }) {
   const live = status === "live";
@@ -39,7 +41,25 @@ export default function CameraFeed({
 
       <div className="camera-view">
         <video ref={videoRef} autoPlay playsInline muted className="camera-video" style={{ opacity: live ? 1 : 0 }} />
-        {live && processedFrame && <img className="camera-processed-frame" src={processedFrame} alt="Camera frame with Python person detections" />}
+        {live && frameWidth && frameHeight && (
+          <svg
+            className="camera-detection-overlay"
+            viewBox={`0 0 ${frameWidth} ${frameHeight}`}
+            preserveAspectRatio="xMidYMid slice"
+            role="img"
+            aria-label={`${detections.length} people detected`}
+          >
+            {detections.map(({ box, confidence }, index) => {
+              const [x1, y1, x2, y2] = box;
+              return (
+                <g key={`${index}-${box.join(",")}`}>
+                  <rect x={x1} y={y1} width={x2 - x1} height={y2 - y1} />
+                  <text x={x1 + 4} y={Math.max(18, y1 - 6)}>Person {Math.round(confidence)}%</text>
+                </g>
+              );
+            })}
+          </svg>
+        )}
         <div className="view-vignette" />
         {live && <div className="view-grid" />}
         {!live && (

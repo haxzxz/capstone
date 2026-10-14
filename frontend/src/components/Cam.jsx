@@ -138,7 +138,9 @@ export default function Cam() {
               onStart={() => camera.start(camera.cameraId)}
               onStop={camera.stop}
               clock={clock}
-              processedFrame={result?.annotated_frame}
+              detections={result?.detections ?? []}
+              frameWidth={result?.frame_width}
+              frameHeight={result?.frame_height}
               cameraFps={cameraFps}
             />
             <StatsGrid stats={[

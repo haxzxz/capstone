@@ -1,6 +1,6 @@
 # School Zone Safety Monitor
 
-The React dashboard streams frames from the browser camera to a Python API. The API runs YOLO person detection and returns the annotated frame and live metrics.
+The React dashboard keeps the browser camera preview local and sends sampled frames to a Python API for YOLO person detection. The API returns detection boxes and live metrics; React draws the boxes over the live preview instead of downloading a new annotated image for every result.
 
 ## Run locally
 
@@ -50,4 +50,4 @@ It uses CUDA device 0, the YOLO11 nano model, and a 416-pixel inference size by 
 
 Use `--device cpu` to run without CUDA, or pass a video file / stream URL with `--camera`.
 
-The dashboard sends JPEG frames up to 640 pixels wide and checks for a new frame every 250 ms while the camera is live. The backend explicitly loads and runs YOLO11 nano on CUDA device 0 with a 416-pixel inference size and FP16 precision. GPU availability, model device, and PyTorch CUDA runtime are exposed by `/api/health` and `/api/summary`; detection responses include model inference, API processing, browser round-trip, and processed-frame-rate metrics.
+The dashboard sends JPEG frames up to 640 pixels wide and checks for a new frame every 250 ms while the camera is live. The browser preview stays at the camera's own frame rate; AI detection runs on sampled frames and returns bounding boxes and metrics. The backend explicitly loads and runs YOLO11 nano on CUDA device 0 with a 416-pixel inference size. GPU availability, model device, and PyTorch CUDA runtime are exposed by `/api/health` and `/api/summary`; detection responses include model inference, API processing, and processed-frame-rate metrics. The dashboard measures browser round-trip time separately.

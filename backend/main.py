@@ -1,4 +1,3 @@
-import base64
 import io
 import os
 import time
@@ -7,7 +6,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from PIL import Image, ImageDraw
+from PIL import Image
 import torch
 from ultralytics import YOLO
 
@@ -122,7 +121,6 @@ async def detect(request: Request):
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"Detection model failed: {error}") from error
 
-    draw = ImageDraw.Draw(image)
     detections = []
     for box in result.boxes:
         class_id = int(box.cls[0].item())
@@ -132,9 +130,6 @@ async def detect(request: Request):
         confidence = float(box.conf[0].item())
         x1, y1, x2, y2 = [int(value) for value in box.xyxy[0].tolist()]
         detections.append({"label": "Person", "confidence": round(confidence * 100, 1), "box": [x1, y1, x2, y2]})
-        draw.rectangle((x1, y1, x2, y2), outline=(32, 205, 151), width=max(2, image.width // 400))
-        draw.rectangle((x1, max(0, y1 - 22), x1 + 96, y1), fill=(19, 105, 83))
-        draw.text((x1 + 5, max(1, y1 - 19)), f"Person {confidence:.0%}", fill="white")
 
     now = datetime.now(timezone.utc).isoformat()
     people_seen += len(detections)
@@ -149,9 +144,6 @@ async def detect(request: Request):
     fps = 0
     if len(frame_times) > 1 and frame_times[-1] > frame_times[0]:
         fps = (len(frame_times) - 1) / (frame_times[-1] - frame_times[0])
-    output = io.BytesIO()
-    image.save(output, format="JPEG", quality=82)
-    annotated = base64.b64encode(output.getvalue()).decode("ascii")
     request_ms = (time.perf_counter() - request_started_at) * 1000
     return {
         "timestamp": now,
@@ -164,6 +156,7 @@ async def detect(request: Request):
         "inference_fps": round(fps, 1),
         "inference_ms": round(inference_ms, 1),
         "request_ms": round(request_ms, 1),
-        "annotated_frame": f"data:image/jpeg;base64,{annotated}",
+        "frame_width": image.width,
+        "frame_height": image.height,
         "events": list(event_log)[:10],
     }
