@@ -31,6 +31,10 @@
 .camera-detection-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .camera-detection-overlay rect { fill: none; stroke: #20cd97; stroke-width: 3; vector-effect: non-scaling-stroke; }
 .camera-detection-overlay text { fill: #fff; font: 600 16px system-ui, sans-serif; paint-order: stroke; stroke: #136953; stroke-width: 5px; stroke-linejoin: round; }
+.camera-detection-overlay .zone-editor-hit-area { fill: rgba(5, 12, 18, .18); stroke: none; }
+.camera-detection-overlay .detection-zone-shape rect { fill: rgba(32, 205, 151, .1); stroke: #68f0c2; stroke-width: 2; stroke-dasharray: 10 7; }
+.camera-detection-overlay .detection-zone-shape text,.camera-detection-overlay .zone-editor-instruction { fill: #d4fff0; font-size: 14px; font-weight: 700; stroke: rgba(8, 48, 39, .9); stroke-width: 4px; }
+.camera-detection-overlay .detection-zone-draft { fill: rgba(32, 205, 151, .18); stroke: #fff; stroke-width: 2; stroke-dasharray: 7 5; }
 .view-vignette { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(5,11,18,.22), transparent 25%, transparent 70%, rgba(5,11,18,.46)); }
 .view-grid { position: absolute; inset: 0; opacity: .17; pointer-events: none; background-image: linear-gradient(rgba(255,255,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.12) 1px,transparent 1px); background-size: 10% 14%; }
 .zone-outline { position: absolute; top: 28%; left: 28%; width: 43%; height: 49%; border: 1.5px dashed rgba(39,218,164,.86); background: rgba(32,185,135,.065); color: #a7f5d9; }
@@ -52,6 +56,7 @@
 .expand-button { position: absolute; right: 13px; top: 13px; display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid rgba(255,255,255,.26); border-radius: 6px; background: rgba(9,17,25,.4); color: white; cursor: pointer; }
 .camera-controls { display: flex; min-height: 54px; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 15px; }
 .feed-meta,.feed-actions { display: flex; align-items: center; gap: 11px; }
+.feed-actions { flex-wrap: wrap; justify-content: flex-end; }
 .feed-meta { color: #8794a3; font-size: 10px; }.feed-meta > span:first-child { display: flex; align-items: center; gap: 6px; color: #5f6e80; }
 .feed-meta i { width: 6px; height: 6px; border-radius: 50%; background: #aab4bf; }.feed-meta i.meta-green { background: #20b889; }
 .meta-divider { height: 13px; width: 1px; background: #e4e9ee; }

@@ -8,6 +8,19 @@ import Header from "./Header.jsx";
 import RecentDetectionsPanel from "./RecentDetectionsPanel.jsx";
 import StatsGrid from "./StatsGrid.jsx";
 
+const DETECTION_ZONE_STORAGE_KEY = "school-zone-detection-area";
+
+function loadDetectionZone() {
+  try {
+    const zone = JSON.parse(window.localStorage.getItem(DETECTION_ZONE_STORAGE_KEY));
+    if (!zone || ![zone.x, zone.y, zone.width, zone.height].every(Number.isFinite)) return null;
+    if (zone.x < 0 || zone.y < 0 || zone.width <= 0 || zone.height <= 0 || zone.x + zone.width > 1 || zone.y + zone.height > 1) return null;
+    return zone;
+  } catch {
+    return null;
+  }
+}
+
 export default function Cam() {
   const camera = useCameraStream();
   const [clock, setClock] = useState(() => new Date());
@@ -17,6 +30,17 @@ export default function Cam() {
   const [result, setResult] = useState(null);
   const [events, setEvents] = useState([]);
   const [cameraFps, setCameraFps] = useState(0);
+  const [detectionZone, setDetectionZone] = useState(loadDetectionZone);
+  const [editingZone, setEditingZone] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (detectionZone) window.localStorage.setItem(DETECTION_ZONE_STORAGE_KEY, JSON.stringify(detectionZone));
+      else window.localStorage.removeItem(DETECTION_ZONE_STORAGE_KEY);
+    } catch {
+      // The zone still works for this session when browser storage is unavailable.
+    }
+  }, [detectionZone]);
 
   useEffect(() => {
     const video = camera.videoRef.current;
@@ -84,7 +108,14 @@ export default function Cam() {
         const frame = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.78));
         if (!frame) return;
         const requestStartedAt = performance.now();
-        const response = await fetch("/api/detect", { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: frame });
+        const response = await fetch("/api/detect", {
+          method: "POST",
+          headers: {
+            "Content-Type": "image/jpeg",
+            "X-Detection-Zone": JSON.stringify(detectionZone),
+          },
+          body: frame,
+        });
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
           throw new Error(body.detail || `Detection service returned ${response.status}`);
@@ -108,7 +139,7 @@ export default function Cam() {
       timer = window.setInterval(processFrame, 250);
     }
     return () => { active = false; window.clearInterval(timer); };
-  }, [camera.status, camera.videoRef]);
+  }, [camera.status, camera.videoRef, detectionZone]);
 
   return (
     <main className="monitor-app">
@@ -142,6 +173,14 @@ export default function Cam() {
               frameWidth={result?.frame_width}
               frameHeight={result?.frame_height}
               cameraFps={cameraFps}
+              detectionZone={detectionZone}
+              editingZone={editingZone}
+              onEditingZoneChange={setEditingZone}
+              onDetectionZoneChange={setDetectionZone}
+              onDetectionZoneReset={() => {
+                setDetectionZone(null);
+                setEditingZone(false);
+              }}
             />
             <StatsGrid stats={[
               { label: "Pedestrians detected", value: result?.total_people_seen ?? "—", note: result ? `${result.count} in current frame` : "Awaiting AI inference", icon: "scan", tone: "tone-blue" },
@@ -152,8 +191,8 @@ export default function Cam() {
 
           <aside className="insights-column" aria-label="AI recognition status">
             <AIRecognitionPanel
-              modelName={result?.model || "YOLO11n"}
-              modelDescription="Python person detection model · GPU inference"
+              modelName={result?.model || "YOLO11m"}
+              modelDescription={result?.device ? `Python person detection model · ${result.device} inference` : "Python person detection model · automatic device selection"}
               status={serviceState === "live" ? "LIVE" : serviceState === "error" ? "OFFLINE" : "CONNECTING"}
               statusMessage={serviceState === "live" ? "Detection feed active" : serviceState === "error" ? "Detection service unavailable" : "Connecting to Python service"}
               statusDetail={serviceMessage}
