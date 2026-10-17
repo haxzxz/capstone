@@ -1,4 +1,5 @@
 import io
+import logging
 import os
 import time
 from collections import deque
@@ -16,6 +17,7 @@ DEVICE = os.getenv("YOLO_DEVICE", "0")
 IMAGE_SIZE = int(os.getenv("YOLO_IMAGE_SIZE", "416"))
 CONFIDENCE_THRESHOLD = float(os.getenv("DETECTION_CONFIDENCE", "0.35"))
 MAX_FRAME_BYTES = 8 * 1024 * 1024
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="School Zone Camera Detection API")
 app.add_middleware(
@@ -119,6 +121,7 @@ async def detect(request: Request):
         torch.cuda.synchronize()
         inference_ms = (time.perf_counter() - inference_started_at) * 1000
     except Exception as error:
+        logger.exception("YOLO detection failed (model=%s, device=%s)", MODEL_PATH, DEVICE)
         raise HTTPException(status_code=503, detail=f"Detection model failed: {error}") from error
 
     detections = []
