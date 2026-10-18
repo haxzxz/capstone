@@ -9,6 +9,7 @@ import RecentDetectionsPanel from "./RecentDetectionsPanel.jsx";
 import StatsGrid from "./StatsGrid.jsx";
 
 const DETECTION_ZONE_STORAGE_KEY = "school-zone-detection-area";
+const ALERT_SOUND_STORAGE_KEY = "school-zone-alert-sound-enabled";
 
 function loadDetectionZone() {
   try {
@@ -25,6 +26,15 @@ export default function Cam() {
   const camera = useCameraStream();
   const [clock, setClock] = useState(() => new Date());
   const canvasRef = useRef(null);
+  const standbyTimerRef = useRef(null);
+  const standbyAudioRef = useRef(null);
+  const standbyPlayingRef = useRef(false);
+  const standbyGenerationRef = useRef(0);
+  const standbyWantedRef = useRef(false);
+  const alertAudioRef = useRef(null);
+  const alertPlayingRef = useRef(false);
+  const alertPlaybackGenerationRef = useRef(0);
+  const standbyDelayRef = useRef(1);
   const [serviceState, setServiceState] = useState("checking");
   const [serviceMessage, setServiceMessage] = useState("Checking Python detection service…");
   const [result, setResult] = useState(null);
@@ -32,6 +42,99 @@ export default function Cam() {
   const [cameraFps, setCameraFps] = useState(0);
   const [detectionZone, setDetectionZone] = useState(loadDetectionZone);
   const [editingZone, setEditingZone] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try { return window.localStorage.getItem(ALERT_SOUND_STORAGE_KEY) !== "false"; }
+    catch { return true; }
+  });
+
+  const stopStandbySound = () => {
+    standbyGenerationRef.current += 1;
+    window.clearTimeout(standbyTimerRef.current);
+    standbyTimerRef.current = null;
+    standbyPlayingRef.current = false;
+    if (standbyAudioRef.current) {
+      standbyAudioRef.current.onended = null;
+      standbyAudioRef.current.onerror = null;
+      standbyAudioRef.current.pause();
+      standbyAudioRef.current.currentTime = 0;
+    }
+  };
+
+  const startStandbySound = (delaySeconds) => {
+    if (!soundEnabled || alertPlayingRef.current) return;
+    if (standbyTimerRef.current !== null || standbyPlayingRef.current) return;
+    const audio = standbyAudioRef.current || new Audio("/api/audio/beep1.mp3");
+    standbyAudioRef.current = audio;
+    const generation = ++standbyGenerationRef.current;
+    const scheduleNext = () => {
+      if (generation !== standbyGenerationRef.current) return;
+      standbyPlayingRef.current = false;
+      if (!standbyWantedRef.current || alertPlayingRef.current || !soundEnabled) return;
+      if (standbyTimerRef.current !== null) return;
+      standbyTimerRef.current = window.setTimeout(() => {
+        standbyTimerRef.current = null;
+        play();
+      }, Math.max(0.1, delaySeconds) * 1000);
+    };
+    const play = () => {
+      if (generation !== standbyGenerationRef.current) return;
+      if (alertPlayingRef.current || !soundEnabled) return;
+      standbyPlayingRef.current = true;
+      audio.currentTime = 0;
+      audio.onended = scheduleNext;
+      audio.onerror = scheduleNext;
+      audio.play().catch(scheduleNext);
+    };
+    play();
+  };
+
+  const playAlertSound = async () => {
+    if (!soundEnabled) {
+      await fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
+      return;
+    }
+    stopStandbySound();
+    const audio = alertAudioRef.current || new Audio("/api/audio/beep3.mp3");
+    alertAudioRef.current = audio;
+    const generation = ++alertPlaybackGenerationRef.current;
+    audio.currentTime = 0;
+    alertPlayingRef.current = true;
+    try {
+      await new Promise((resolve, reject) => {
+        audio.onended = resolve;
+        audio.onerror = resolve;
+        audio.play().catch(reject);
+      });
+    } catch {
+      // A blocked or unavailable alert sound should not prevent standby mode.
+    } finally {
+      if (generation === alertPlaybackGenerationRef.current) {
+        await fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
+        alertPlayingRef.current = false;
+        if (standbyWantedRef.current && soundEnabled) startStandbySound(standbyDelayRef.current);
+      }
+    }
+  };
+
+  const stopAlertSound = () => {
+    const wasPlaying = alertPlayingRef.current;
+    alertPlaybackGenerationRef.current += 1;
+    alertPlayingRef.current = false;
+    if (alertAudioRef.current) {
+      alertAudioRef.current.pause();
+      alertAudioRef.current.currentTime = 0;
+    }
+    if (wasPlaying) fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
+  };
+
+  useEffect(() => {
+    try { window.localStorage.setItem(ALERT_SOUND_STORAGE_KEY, String(soundEnabled)); }
+    catch { /* Sound preference still applies for this session. */ }
+    if (!soundEnabled) {
+      stopStandbySound();
+      stopAlertSound();
+    }
+  }, [soundEnabled]);
 
   useEffect(() => {
     try {
@@ -141,6 +244,16 @@ export default function Cam() {
         setEvents(data.events || []);
         setServiceState("live");
         setServiceMessage("Python is processing the live camera feed.");
+        const settings = data.alert_settings || {};
+        standbyDelayRef.current = settings.standby_beep_delay_seconds || 1;
+        standbyWantedRef.current = data.alert_pending || data.count === 0;
+        if (data.alert_trigger) {
+          void playAlertSound();
+        } else if (standbyWantedRef.current) {
+          startStandbySound(settings.standby_beep_delay_seconds || 3);
+        } else {
+          stopStandbySound();
+        }
       } catch (error) {
         if (active) {
           setServiceState("error");
@@ -152,8 +265,12 @@ export default function Cam() {
       processFrame();
       timer = window.setInterval(processFrame, 250);
     }
-    return () => { active = false; window.clearInterval(timer); };
-  }, [camera.status, camera.videoRef, detectionZone]);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      stopStandbySound();
+    };
+  }, [camera.status, camera.videoRef, detectionZone, soundEnabled]);
 
   return (
     <main className="monitor-app">
@@ -165,6 +282,9 @@ export default function Cam() {
             <h1>Live monitoring</h1>
             <p>Real-time pedestrian safety monitoring and AI event overview.</p>
           </div>
+          <button type="button" className="camera-action" aria-pressed={soundEnabled} onClick={() => setSoundEnabled((enabled) => !enabled)}>
+            Sound {soundEnabled ? "on" : "off"}
+          </button>
           <ClockBadge date={clock} />
         </div>
 
@@ -180,8 +300,12 @@ export default function Cam() {
                 camera.setCameraId(deviceId);
                 camera.start(deviceId);
               }}
-              onStart={() => camera.start(camera.cameraId)}
-              onStop={camera.stop}
+              onStart={() => {
+                standbyWantedRef.current = true;
+                startStandbySound(standbyDelayRef.current);
+                camera.start(camera.cameraId);
+              }}
+              onStop={() => { standbyWantedRef.current = false; stopStandbySound(); stopAlertSound(); camera.stop(); }}
               clock={clock}
               detections={result?.detections ?? []}
               frameWidth={result?.frame_width}

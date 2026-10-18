@@ -13,11 +13,17 @@ from csv import writer
 from io import StringIO
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from cryptography.fernet import Fernet
 from PIL import Image
 import torch
 from ultralytics import YOLO
+
+try:
+    from .alert_logic import PedestrianAlertController
+except ImportError:
+    from alert_logic import PedestrianAlertController
 
 
 MODEL_PATH = os.getenv("YOLO_MODEL", "yolo11m.pt")
@@ -28,6 +34,11 @@ TELEMETRY_ENCRYPTION_KEY = os.getenv("TELEMETRY_ENCRYPTION_KEY", "").strip()
 TELEMETRY_KEY_PATH = Path(os.getenv("TELEMETRY_KEY_PATH", Path(__file__).with_name("telemetry.key")))
 MAX_FRAME_BYTES = 8 * 1024 * 1024
 DATABASE_PATH = Path(os.getenv("DATABASE_PATH", Path(__file__).with_name("school_zone.db")))
+ALERT_ONE_PERSON_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_ONE_PERSON_DWELL_SECONDS", "12")))
+ALERT_TWO_PERSON_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_TWO_PERSON_DWELL_SECONDS", "8")))
+ALERT_THREE_OR_MORE_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_THREE_OR_MORE_DWELL_SECONDS", "5")))
+STANDBY_BEEP_DELAY_SECONDS = 1.0
+AUDIO_SOURCE_DIRECTORY = Path(__file__).with_name("source")
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="School Zone Camera Detection API")
@@ -43,6 +54,27 @@ active_device = None
 started_at = time.monotonic()
 frame_times = deque(maxlen=30)
 person_was_present = False
+alert_controller = PedestrianAlertController(
+    ALERT_ONE_PERSON_DWELL_SECONDS,
+    ALERT_TWO_PERSON_DWELL_SECONDS,
+    ALERT_THREE_OR_MORE_DWELL_SECONDS,
+)
+
+
+@app.get("/api/audio/{filename}")
+def get_alert_audio(filename: str):
+    if filename not in {"beep1.mp3", "beep3.mp3"}:
+        raise HTTPException(status_code=404, detail="Audio file not found.")
+    path = AUDIO_SOURCE_DIRECTORY / filename
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Audio file not found.")
+    return FileResponse(path, media_type="audio/mpeg")
+
+
+@app.post("/api/alert-finished")
+def alert_finished():
+    alert_controller.finish_alert()
+    return {"status": "ready"}
 
 
 def connect_database():
@@ -385,6 +417,12 @@ async def detect(request: Request):
         }
     person_was_present = bool(detections)
 
+    people_count = len(detections)
+    zone_key = None if detection_zone is None else tuple(
+        detection_zone[key] for key in ("x", "y", "width", "height")
+    )
+    alert_status = alert_controller.update(people_count, zone_key, time.monotonic())
+
     with closing(connect_database()) as connection:
         connection.execute("UPDATE dashboard_stats SET people_seen = people_seen + ? WHERE id = 1", (len(detections),))
         if event:
@@ -405,6 +443,15 @@ async def detect(request: Request):
         "device": api_device_name(active_device),
         "detections": detections,
         "count": len(detections),
+        "alert_trigger": alert_status["trigger"],
+        "alert_pending": alert_status["pending"],
+        "alert_playing": alert_status["alert_playing"],
+        "alert_settings": {
+            "one_person_dwell_seconds": ALERT_ONE_PERSON_DWELL_SECONDS,
+            "two_person_dwell_seconds": ALERT_TWO_PERSON_DWELL_SECONDS,
+            "three_or_more_dwell_seconds": ALERT_THREE_OR_MORE_DWELL_SECONDS,
+            "standby_beep_delay_seconds": STANDBY_BEEP_DELAY_SECONDS,
+        },
         "average_confidence": round(sum(item["confidence"] for item in detections) / len(detections), 1) if detections else None,
         "total_people_seen": get_people_seen(),
         "inference_fps": round(fps, 1),

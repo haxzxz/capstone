@@ -28,6 +28,11 @@ Open the Vite URL (normally `http://localhost:5173`) and allow camera access. Vi
 - `YOLO_DEVICE`: `auto`, a CUDA device index, or a PyTorch device name (default `auto`; uses a compatible GPU and falls back to CPU).
 - `YOLO_IMAGE_SIZE`: inference image size in pixels (default `416`; use `640` for higher detection detail).
 - `DETECTION_CONFIDENCE`: minimum person confidence from 0 to 1 (default `0.35`).
+- `ALERT_ONE_PERSON_DWELL_SECONDS`: how long one detected pedestrian must remain before the alert triggers (default `12`).
+- `ALERT_TWO_PERSON_DWELL_SECONDS`: wait time for two detected pedestrians (default `8`).
+- `ALERT_THREE_OR_MORE_DWELL_SECONDS`: wait time for three or more detected pedestrians (default `5`). If the group size changes during a countdown, elapsed time is preserved and the current count's wait time applies.
+- The alert sound `backend/source/beep3.mp3` plays once when the countdown completes. No new countdown starts until the browser finishes playing the alert sound.
+- `backend/source/beep1.mp3` repeats during standby and while an alert countdown is pending, with a fixed one-second delay after each beep finishes. Standby beeps resume after `beep3` finishes.
 - `FRONTEND_ORIGINS`: comma-separated browser origins permitted by the API (default includes localhost:5173).
 - `DATABASE_PATH`: SQLite database file path (default `backend/school_zone.db`). The backend creates the database and tables on startup. Detection totals and event history persist across restarts.
 - `TELEMETRY_KEY_PATH`: location for the auto-generated Fernet key (default `backend/telemetry.key`). The backend creates it on first encrypted export and reuses it. Keep this file private and backed up, since it is needed to decrypt exports.
