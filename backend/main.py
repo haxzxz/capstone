@@ -25,6 +25,7 @@ DEVICE_SETTING = os.getenv("YOLO_DEVICE", "auto").strip().lower()
 IMAGE_SIZE = int(os.getenv("YOLO_IMAGE_SIZE", "416"))
 CONFIDENCE_THRESHOLD = float(os.getenv("DETECTION_CONFIDENCE", "0.35"))
 TELEMETRY_ENCRYPTION_KEY = os.getenv("TELEMETRY_ENCRYPTION_KEY", "").strip()
+TELEMETRY_KEY_PATH = Path(os.getenv("TELEMETRY_KEY_PATH", Path(__file__).with_name("telemetry.key")))
 MAX_FRAME_BYTES = 8 * 1024 * 1024
 DATABASE_PATH = Path(os.getenv("DATABASE_PATH", Path(__file__).with_name("school_zone.db")))
 logger = logging.getLogger(__name__)
@@ -132,6 +133,23 @@ def save_telemetry(timestamp, fps, detections, detection_zone, inference_ms):
             ),
         )
         connection.commit()
+
+
+def get_telemetry_cipher():
+    if TELEMETRY_ENCRYPTION_KEY:
+        return Fernet(TELEMETRY_ENCRYPTION_KEY.encode("ascii"))
+
+    TELEMETRY_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        key = TELEMETRY_KEY_PATH.read_bytes().strip()
+    except FileNotFoundError:
+        key = Fernet.generate_key()
+        try:
+            with TELEMETRY_KEY_PATH.open("xb") as key_file:
+                key_file.write(key)
+        except FileExistsError:
+            key = TELEMETRY_KEY_PATH.read_bytes().strip()
+    return Fernet(key)
 
 
 initialize_database()
@@ -288,14 +306,12 @@ def export_telemetry():
             row["detection_count"], row["inference_latency_ms"],
             row["end_to_end_alert_latency_seconds"], row["gpio_output_activation_latency_ms"],
         ))
-    if not TELEMETRY_ENCRYPTION_KEY:
-        raise HTTPException(status_code=503, detail="Set TELEMETRY_ENCRYPTION_KEY to export encrypted telemetry.")
     try:
-        encrypted_csv = Fernet(TELEMETRY_ENCRYPTION_KEY.encode("ascii")).encrypt(
+        encrypted_csv = get_telemetry_cipher().encrypt(
             ("\ufeff" + output.getvalue()).encode("utf-8")
         )
-    except (ValueError, UnicodeEncodeError) as error:
-        raise HTTPException(status_code=503, detail="TELEMETRY_ENCRYPTION_KEY must be a valid Fernet key.") from error
+    except (ValueError, UnicodeEncodeError, OSError) as error:
+        raise HTTPException(status_code=503, detail="Unable to load the telemetry encryption key.") from error
     return Response(
         content=encrypted_csv,
         media_type="application/octet-stream",

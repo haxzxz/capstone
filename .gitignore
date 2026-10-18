@@ -4,3 +4,4 @@ backend/.venv/
 backend/school_zone.db
 backend/school_zone.db-shm
 backend/school_zone.db-wal
+backend/telemetry.key
