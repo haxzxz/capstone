@@ -1,6 +1,7 @@
-# React
 node_modules/
 backend/.venv/
+backend/venv
+backend/__pycache__
 backend/school_zone.db
 backend/school_zone.db-shm
 backend/school_zone.db-wal
