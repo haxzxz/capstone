@@ -93,6 +93,20 @@ export default function Cam() {
 
   useEffect(() => {
     let active = true;
+    fetch("/api/summary")
+      .then((response) => {
+        if (!response.ok) throw new Error("Detection service is unavailable");
+        return response.json();
+      })
+      .then((data) => {
+        if (active) setEvents(data.events || []);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     let busy = false;
     let timer;
     const processFrame = async () => {

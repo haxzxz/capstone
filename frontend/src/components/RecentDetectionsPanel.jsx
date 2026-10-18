@@ -1,6 +1,6 @@
 import Icon from "./Icon.jsx";
 
-export default function RecentDetectionsPanel({ events = [], unavailable = true, onViewLog }) {
+export default function RecentDetectionsPanel({ events = [], unavailable = true }) {
   return (
     <section className="panel alerts-panel" aria-label="Recent detection events">
       <div className="panel-heading alerts-heading">
@@ -16,7 +16,12 @@ export default function RecentDetectionsPanel({ events = [], unavailable = true,
       ) : (
         <ul className="event-list">{events.map((event) => <li className="event-row" key={event.id}><span className="event-dot"/><div><strong>{event.label}</strong><small>{event.time} · {event.zoneResult}</small></div><b>{event.confidence}%</b></li>)}</ul>
       )}
-      <button className="log-button" disabled={unavailable} onClick={onViewLog}><Icon name="refresh" size={15} />{unavailable ? "Event log unavailable" : "View event log"}</button>
+      <a className="log-button export-button" href="/api/events/export" aria-label="Export all detection events as a CSV file">
+        <Icon name="download" size={15} />Export event log CSV
+      </a>
+      <a className="log-button export-button" href="/api/telemetry/export" aria-label="Export encrypted automated telemetry CSV file">
+        <Icon name="download" size={15} />Export encrypted telemetry CSV
+      </a>
     </section>
   );
 }
