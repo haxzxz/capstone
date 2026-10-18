@@ -5,6 +5,7 @@ import CameraFeed from "./CameraFeed.jsx";
 import ClockBadge from "./ClockBadge.jsx";
 import HardwareAlertNote from "./HardwareAlertNote.jsx";
 import Header from "./Header.jsx";
+import Icon from "./Icon.jsx";
 import RecentDetectionsPanel from "./RecentDetectionsPanel.jsx";
 import StatsGrid from "./StatsGrid.jsx";
 
@@ -282,10 +283,20 @@ export default function Cam() {
             <h1>Live monitoring</h1>
             <p>Real-time pedestrian safety monitoring and AI event overview.</p>
           </div>
-          <button type="button" className="camera-action" aria-pressed={soundEnabled} onClick={() => setSoundEnabled((enabled) => !enabled)}>
-            Sound {soundEnabled ? "on" : "off"}
-          </button>
-          <ClockBadge date={clock} />
+          <div className="intro-status">
+            <button
+              type="button"
+              className={`sound-toggle ${soundEnabled ? "is-enabled" : ""}`}
+              aria-label={`Alert sound ${soundEnabled ? "on" : "off"}`}
+              aria-pressed={soundEnabled}
+              title={`Turn alert sound ${soundEnabled ? "off" : "on"}`}
+              onClick={() => setSoundEnabled((enabled) => !enabled)}
+            >
+              <Icon name={soundEnabled ? "volume" : "muted"} size={15} />
+              <span>Sound {soundEnabled ? "on" : "off"}</span>
+            </button>
+            <ClockBadge date={clock} />
+          </div>
         </div>
 
         <section className="overview-grid" aria-label="Live camera and AI monitoring dashboard">
