@@ -264,7 +264,7 @@ export default function Cam() {
     };
     if (camera.status === "live") {
       processFrame();
-      timer = window.setInterval(processFrame, 250);
+      timer = window.setInterval(processFrame, 50);
     }
     return () => {
       active = false;
