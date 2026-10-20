@@ -23,7 +23,7 @@ def parse_args():
     parser.add_argument("--model", default="yolo11m.pt", help="YOLO model path or Ultralytics model name (default: yolo11m.pt).")
     parser.add_argument("--device", default="auto", help="Inference device: auto, 0, cuda:0, or cpu (default: auto).")
     parser.add_argument("--imgsz", type=int, default=416, help="Inference image size (default: 416).")
-    parser.add_argument("--conf", type=float, default=0.35, help="Minimum detection confidence (default: 0.35).")
+    parser.add_argument("--conf", type=float, default=0.65, help="Minimum detection confidence (default: 0.65).")
     return parser.parse_args()
 
 

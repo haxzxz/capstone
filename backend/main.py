@@ -29,11 +29,12 @@ except ImportError:
 MODEL_PATH = os.getenv("YOLO_MODEL", "yolo11m.pt")
 DEVICE_SETTING = os.getenv("YOLO_DEVICE", "auto").strip().lower()
 IMAGE_SIZE = int(os.getenv("YOLO_IMAGE_SIZE", "416"))
-CONFIDENCE_THRESHOLD = float(os.getenv("DETECTION_CONFIDENCE", "0.35"))
+CONFIDENCE_THRESHOLD = float(os.getenv("DETECTION_CONFIDENCE", "0.65"))
 TELEMETRY_ENCRYPTION_KEY = os.getenv("TELEMETRY_ENCRYPTION_KEY", "").strip()
 TELEMETRY_KEY_PATH = Path(os.getenv("TELEMETRY_KEY_PATH", Path(__file__).with_name("telemetry.key")))
 MAX_FRAME_BYTES = 8 * 1024 * 1024
 DATABASE_PATH = Path(os.getenv("DATABASE_PATH", Path(__file__).with_name("school_zone.db")))
+EXPORT_DIRECTORY = Path(__file__).with_name("export")
 ALERT_ONE_PERSON_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_ONE_PERSON_DWELL_SECONDS", "12")))
 ALERT_TWO_PERSON_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_TWO_PERSON_DWELL_SECONDS", "8")))
 ALERT_THREE_OR_MORE_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_THREE_OR_MORE_DWELL_SECONDS", "5")))
@@ -312,8 +313,11 @@ def export_events():
         ).fetchall()
     for row in rows:
         csv_writer.writerow((row["id"], row["label"], row["confidence"], row["zone_result"]))
+    content = "\ufeff" + output.getvalue()
+    EXPORT_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    (EXPORT_DIRECTORY / "school-zone-events.csv").write_text(content, encoding="utf-8", newline="")
     return Response(
-        content="\ufeff" + output.getvalue(),
+        content=content,
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="school-zone-events.csv"'},
     )
@@ -344,12 +348,13 @@ def export_telemetry():
         )
     except (ValueError, UnicodeEncodeError, OSError) as error:
         raise HTTPException(status_code=503, detail="Unable to load the telemetry encryption key.") from error
+    EXPORT_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    (EXPORT_DIRECTORY / "school-zone-telemetry.csv.enc").write_bytes(encrypted_csv)
     return Response(
         content=encrypted_csv,
         media_type="application/octet-stream",
         headers={"Content-Disposition": 'attachment; filename="school-zone-telemetry.csv.enc"'},
     )
-
 
 @app.post("/api/detect")
 async def detect(request: Request):
@@ -394,6 +399,8 @@ async def detect(request: Request):
         if label != "person":
             continue
         confidence = float(box.conf[0].item())
+        if confidence < CONFIDENCE_THRESHOLD:
+            continue
         x1, y1, x2, y2 = [int(value) for value in box.xyxy[0].tolist()]
         if detection_zone:
             center_x = ((x1 + x2) / 2) / image.width
