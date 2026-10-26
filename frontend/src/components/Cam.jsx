@@ -11,6 +11,7 @@ import StatsGrid from "./StatsGrid.jsx";
 
 const DETECTION_ZONE_STORAGE_KEY = "school-zone-detection-area";
 const ALERT_SOUND_STORAGE_KEY = "school-zone-alert-sound-enabled";
+const THEME_STORAGE_KEY = "school-zone-theme";
 
 function loadDetectionZone() {
   try {
@@ -47,6 +48,15 @@ export default function Cam() {
     try { return window.localStorage.getItem(ALERT_SOUND_STORAGE_KEY) !== "false"; }
     catch { return true; }
   });
+  const [darkMode, setDarkMode] = useState(() => {
+    try { return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark"; }
+    catch { return false; }
+  });
+
+  useEffect(() => {
+    try { window.localStorage.setItem(THEME_STORAGE_KEY, darkMode ? "dark" : "light"); }
+    catch { /* Theme preference still applies for this session. */ }
+  }, [darkMode]);
 
   const stopStandbySound = () => {
     standbyGenerationRef.current += 1;
@@ -274,7 +284,7 @@ export default function Cam() {
   }, [camera.status, camera.videoRef, detectionZone, soundEnabled]);
 
   return (
-    <main className="monitor-app">
+    <main className={`monitor-app${darkMode ? " theme-dark" : ""}`}>
       <Header aria-label="Customizable header area" />
       <div className="monitor-content">
         <div className="page-intro">
@@ -284,6 +294,17 @@ export default function Cam() {
             <p>Real-time pedestrian safety monitoring and AI event overview.</p>
           </div>
           <div className="intro-status">
+            <button
+              type="button"
+              className="theme-toggle"
+              aria-label={`Switch to ${darkMode ? "light" : "dark"} mode`}
+              aria-pressed={darkMode}
+              title={`Switch to ${darkMode ? "light" : "dark"} mode`}
+              onClick={() => setDarkMode((enabled) => !enabled)}
+            >
+              <Icon name={darkMode ? "sun" : "moon"} size={15} />
+              <span>{darkMode ? "Light mode" : "Dark mode"}</span>
+            </button>
             <button
               type="button"
               className={`sound-toggle ${soundEnabled ? "is-enabled" : ""}`}

@@ -7,6 +7,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-optical-sizing: auto;
+  color-scheme: light;
 }
 
 * {
@@ -36,3 +37,5 @@ select:focus-visible {
   outline: 3px solid rgba(32, 184, 137, .55);
   outline-offset: 2px;
 }
+
+::selection { background: rgba(32, 184, 137, .2); }
