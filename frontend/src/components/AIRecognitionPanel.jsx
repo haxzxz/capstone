@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Icon from "./Icon.jsx";
 
 export default function AIRecognitionPanel({
@@ -14,6 +15,8 @@ export default function AIRecognitionPanel({
   roundTripMs,
   zoneIntersections = "—",
 }) {
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+
   return (
     <section className="panel ai-panel" aria-label="AI recognition status">
       <div className="panel-heading">
@@ -30,14 +33,27 @@ export default function AIRecognitionPanel({
         <div><strong>{statusMessage}</strong><p>{statusDetail}</p></div>
       </div>
       <div className="panel-divider" />
+      <div className="status-controls">
+        <h3>System details</h3>
+        <button
+          className="status-details-toggle"
+          type="button"
+          aria-expanded={showTechnicalDetails}
+          onClick={() => setShowTechnicalDetails((shown) => !shown)}
+        >
+          {showTechnicalDetails ? "Hide technical details" : "Show technical details"}
+        </button>
+      </div>
       <div className="metric-list">
         <div><span>Detection zone</span><strong><i className="status-neutral" />{detectionZone}</strong></div>
         <div><span>School schedule</span><strong><i className="status-neutral" />{schoolSchedule}</strong></div>
         <div><span>Processed rate</span><strong>{inferenceRate} <small>FPS</small></strong></div>
-        <div><span>Model inference</span><strong>{inferenceMs ?? "—"} <small>ms</small></strong></div>
-        <div><span>API processing</span><strong>{requestMs ?? "—"} <small>ms</small></strong></div>
-        <div><span>Browser round trip</span><strong>{roundTripMs != null ? Math.round(roundTripMs) : "—"} <small>ms</small></strong></div>
-        <div><span>Zone intersections</span><strong>{zoneIntersections} <small>events</small></strong></div>
+        {showTechnicalDetails && <>
+          <div><span>Model inference</span><strong>{inferenceMs ?? "—"} <small>ms</small></strong></div>
+          <div><span>API processing</span><strong>{requestMs ?? "—"} <small>ms</small></strong></div>
+          <div><span>Browser round trip</span><strong>{roundTripMs != null ? Math.round(roundTripMs) : "—"} <small>ms</small></strong></div>
+          <div><span>Zone intersections</span><strong>{zoneIntersections} <small>events</small></strong></div>
+        </>}
       </div>
     </section>
   );

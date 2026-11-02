@@ -166,3 +166,40 @@
   .monitor-content { padding-top: 28px; }
   .overview-grid { gap: 18px; }
 }
+
+/* Make the system status comfortable to read and keep its default view simple. */
+.ai-panel .section-kicker { font-size: 12px; }
+.ai-panel .panel-heading h2 { font-size: 21px; }
+.ai-panel .ai-chip { padding: 7px 9px; font-size: 11px; }
+.ai-panel .ai-chip i { width: 8px; height: 8px; }
+.ai-panel .model-card { gap: 12px; padding: 13px; }
+.ai-panel .model-mark { width: 40px; height: 40px; }
+.ai-panel .model-info strong { font-size: 16px; }
+.ai-panel .model-info span { font-size: 13px; line-height: 1.4; }
+.ai-panel .model-version { font-size: 10px; }
+.ai-panel .recognition-status { gap: 12px; margin-block: 18px; }
+.ai-panel .status-ring { width: 40px; height: 40px; flex-basis: 40px; }
+.ai-panel .recognition-status strong { font-size: 15px; line-height: 1.4; }
+.ai-panel .recognition-status p { margin-top: 5px; color: #718093; font-size: 14px; line-height: 1.5; }
+.ai-panel .status-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 14px; }
+.ai-panel .status-controls h3 { margin: 0; color: #34465b; font-size: 16px; font-weight: 650; }
+.ai-panel .status-details-toggle { min-height: 40px; padding: 8px 11px; border: 1px solid #dce5e9; border-radius: 8px; background: #fff; color: #236b55; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.ai-panel .status-details-toggle:hover { border-color: #b8dfd0; background: #f3faf7; }
+.ai-panel .status-details-toggle:focus-visible { outline: 3px solid #20b889; outline-offset: 2px; }
+.ai-panel .metric-list { gap: 15px; padding-top: 16px; }
+.ai-panel .metric-list > div { align-items: flex-start; gap: 10px; }
+.ai-panel .metric-list span { color: #647487; font-size: 14px; line-height: 1.45; }
+.ai-panel .metric-list strong { color: #304257; font-size: 14px; line-height: 1.45; text-align: right; }
+.ai-panel .metric-list strong small { color: #647487; font-size: 13px; }
+.ai-panel .status-neutral { width: 8px; height: 8px; flex: 0 0 8px; }
+.theme-dark .ai-panel .status-controls h3,.theme-dark .ai-panel .metric-list strong { color: #e2eaf2; }
+.theme-dark .ai-panel .recognition-status p,.theme-dark .ai-panel .metric-list span,.theme-dark .ai-panel .metric-list strong small { color: #b0bdca; }
+.theme-dark .ai-panel .status-details-toggle { border-color: #3a4b59; background: #18232f; color: #9bdcc4; }
+.theme-dark .ai-panel .status-details-toggle:hover { background: #1e302f; }
+
+@media (max-width: 520px) {
+  .ai-panel .panel-heading h2 { font-size: 20px; }
+  .ai-panel .status-controls { align-items: flex-start; flex-direction: column; }
+  .ai-panel .status-details-toggle { width: 100%; }
+  .ai-panel .metric-list > div { gap: 8px; }
+}
