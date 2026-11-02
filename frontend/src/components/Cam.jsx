@@ -11,6 +11,9 @@ import StatsGrid from "./StatsGrid.jsx";
 
 const DETECTION_ZONE_STORAGE_KEY = "school-zone-detection-area";
 const ALERT_SOUND_STORAGE_KEY = "school-zone-alert-sound-enabled";
+const ALERT_SCHEDULE_STORAGE_KEY = "school-zone-daily-alert-time";
+const ALERT_MODE_STORAGE_KEY = "school-zone-alert-manual-mode";
+const LAST_SCHEDULED_ALERT_STORAGE_KEY = "school-zone-last-successful-alert";
 const THEME_STORAGE_KEY = "school-zone-theme";
 
 function loadDetectionZone() {
@@ -36,6 +39,7 @@ export default function Cam() {
   const alertAudioRef = useRef(null);
   const alertPlayingRef = useRef(false);
   const alertPlaybackGenerationRef = useRef(0);
+  const previousManualModeRef = useRef(false);
   const standbyDelayRef = useRef(1);
   const [serviceState, setServiceState] = useState("checking");
   const [serviceMessage, setServiceMessage] = useState("Checking Python detection service…");
@@ -44,6 +48,16 @@ export default function Cam() {
   const [cameraFps, setCameraFps] = useState(0);
   const [detectionZone, setDetectionZone] = useState(loadDetectionZone);
   const [editingZone, setEditingZone] = useState(false);
+  const [alertSchedule, setAlertSchedule] = useState(() => {
+    try { return window.localStorage.getItem(ALERT_SCHEDULE_STORAGE_KEY) || ""; }
+    catch { return ""; }
+  });
+  const [scheduleAlertStatus, setScheduleAlertStatus] = useState("");
+  const [manualMode, setManualMode] = useState(() => {
+    try { return window.localStorage.getItem(ALERT_MODE_STORAGE_KEY) === "true"; }
+    catch { return false; }
+  });
+  const [manualAlertActive, setManualAlertActive] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try { return window.localStorage.getItem(ALERT_SOUND_STORAGE_KEY) !== "false"; }
     catch { return true; }
@@ -99,10 +113,11 @@ export default function Cam() {
     play();
   };
 
-  const playAlertSound = async () => {
+  const playAlertSound = async (repeatUntilStopped = false) => {
+    if (alertPlayingRef.current) return false;
     if (!soundEnabled) {
       await fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
-      return;
+      return false;
     }
     stopStandbySound();
     const audio = alertAudioRef.current || new Audio("/api/audio/beep3.mp3");
@@ -110,27 +125,35 @@ export default function Cam() {
     const generation = ++alertPlaybackGenerationRef.current;
     audio.currentTime = 0;
     alertPlayingRef.current = true;
+    setManualAlertActive(true);
+    let playbackSucceeded = false;
     try {
-      await new Promise((resolve, reject) => {
-        audio.onended = resolve;
-        audio.onerror = resolve;
-        audio.play().catch(reject);
-      });
+      do {
+        await new Promise((resolve, reject) => {
+          audio.onended = resolve;
+          audio.onerror = () => reject(new Error("Alert audio could not be played."));
+          audio.play().then(() => { playbackSucceeded = true; }).catch(reject);
+        });
+        if (repeatUntilStopped && manualMode && alertPlayingRef.current) audio.currentTime = 0;
+      } while (repeatUntilStopped && manualMode && alertPlayingRef.current);
     } catch {
       // A blocked or unavailable alert sound should not prevent standby mode.
     } finally {
       if (generation === alertPlaybackGenerationRef.current) {
         await fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
         alertPlayingRef.current = false;
+        setManualAlertActive(false);
         if (standbyWantedRef.current && soundEnabled) startStandbySound(standbyDelayRef.current);
       }
     }
+    return playbackSucceeded;
   };
 
   const stopAlertSound = () => {
     const wasPlaying = alertPlayingRef.current;
     alertPlaybackGenerationRef.current += 1;
     alertPlayingRef.current = false;
+    setManualAlertActive(false);
     if (alertAudioRef.current) {
       alertAudioRef.current.pause();
       alertAudioRef.current.currentTime = 0;
@@ -146,6 +169,68 @@ export default function Cam() {
       stopAlertSound();
     }
   }, [soundEnabled]);
+
+  useEffect(() => {
+    try {
+      if (alertSchedule) window.localStorage.setItem(ALERT_SCHEDULE_STORAGE_KEY, alertSchedule);
+      else window.localStorage.removeItem(ALERT_SCHEDULE_STORAGE_KEY);
+      window.localStorage.setItem(ALERT_MODE_STORAGE_KEY, String(manualMode));
+    } catch { /* Alert preferences still apply for this session. */ }
+  }, [alertSchedule, manualMode]);
+
+  useEffect(() => {
+    const modeChanged = previousManualModeRef.current !== manualMode;
+    previousManualModeRef.current = manualMode;
+    if (manualMode) {
+      standbyWantedRef.current = false;
+      stopStandbySound();
+    }
+    if (modeChanged && alertPlayingRef.current) {
+      stopAlertSound();
+    }
+    return undefined;
+  }, [manualMode]);
+
+  useEffect(() => {
+    if (!alertSchedule) return undefined;
+    let firedToday = false;
+    let lastAttemptAt = 0;
+    const [hour, minute] = alertSchedule.split(":").map(Number);
+    let targetDate = new Date();
+    targetDate.setHours(hour, minute, 0, 0);
+    if (targetDate.getTime() < Date.now() - 2 * 60 * 1000) targetDate.setDate(targetDate.getDate() + 1);
+    const checkScheduledAlert = () => {
+      const now = new Date();
+      if (now.toDateString() !== targetDate.toDateString()) {
+        if (now > targetDate) {
+          targetDate = new Date(now);
+          targetDate.setHours(hour, minute, 0, 0);
+          if (targetDate <= now) targetDate.setDate(targetDate.getDate() + 1);
+        }
+        return;
+      }
+      if (now < targetDate) return;
+      const today = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${String(targetDate.getDate()).padStart(2, "0")}`;
+      if (firedToday || now.getTime() - lastAttemptAt < 15000) return;
+      try {
+        if (window.localStorage.getItem(LAST_SCHEDULED_ALERT_STORAGE_KEY) === today) return;
+      } catch { /* Keep an in-memory guard when browser storage is unavailable. */ }
+      lastAttemptAt = now.getTime();
+      void playAlertSound().then((played) => {
+        if (played) {
+          firedToday = true;
+          try { window.localStorage.setItem(LAST_SCHEDULED_ALERT_STORAGE_KEY, today); }
+          catch { /* The in-memory guard still prevents repeats this session. */ }
+          setScheduleAlertStatus(`Scheduled alert played at ${alertSchedule}.`);
+        } else {
+          setScheduleAlertStatus("Scheduled time reached, but the alert sound did not play. Check that sound is on.");
+        }
+      });
+    };
+    const timer = window.setInterval(checkScheduledAlert, 1000);
+    checkScheduledAlert();
+    return () => window.clearInterval(timer);
+  }, [alertSchedule, soundEnabled]);
 
   useEffect(() => {
     try {
@@ -257,8 +342,11 @@ export default function Cam() {
         setServiceMessage("Python is processing the live camera feed.");
         const settings = data.alert_settings || {};
         standbyDelayRef.current = settings.standby_beep_delay_seconds || 1;
-        standbyWantedRef.current = data.alert_pending || data.count === 0;
-        if (data.alert_trigger) {
+        standbyWantedRef.current = !manualMode && (data.alert_pending || data.count === 0);
+        if (manualMode) {
+          stopStandbySound();
+          if (data.alert_trigger) fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
+        } else if (data.alert_trigger) {
           void playAlertSound();
         } else if (standbyWantedRef.current) {
           startStandbySound(settings.standby_beep_delay_seconds || 3);
@@ -281,7 +369,7 @@ export default function Cam() {
       window.clearInterval(timer);
       stopStandbySound();
     };
-  }, [camera.status, camera.videoRef, detectionZone, soundEnabled]);
+  }, [camera.status, camera.videoRef, detectionZone, soundEnabled, manualMode]);
 
   return (
     <main className={`monitor-app${darkMode ? " theme-dark" : ""}`}>
@@ -367,7 +455,14 @@ export default function Cam() {
               statusMessage={serviceState === "live" ? "Detection feed active" : serviceState === "error" ? "Detection service unavailable" : "Connecting to Python service"}
               statusDetail={serviceMessage}
               detectionZone={result?.count ? "Person detected" : result ? "Clear" : "Waiting for feed"}
-              schoolSchedule="Not configured"
+              schoolSchedule={alertSchedule}
+              onSchoolScheduleChange={(time) => { setAlertSchedule(time); setScheduleAlertStatus(""); }}
+              scheduleAlertStatus={scheduleAlertStatus}
+              manualMode={manualMode}
+              onManualModeChange={setManualMode}
+              onManualAlertStart={() => { standbyWantedRef.current = false; stopStandbySound(); void playAlertSound(true); }}
+              onManualAlertStop={stopAlertSound}
+              manualAlertActive={manualAlertActive}
               inferenceRate={result?.inference_fps ?? "—"}
               inferenceMs={result?.inference_ms}
               requestMs={result?.request_ms}

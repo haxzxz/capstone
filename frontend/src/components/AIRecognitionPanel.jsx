@@ -8,7 +8,14 @@ export default function AIRecognitionPanel({
   statusMessage = "Waiting for inference feed",
   statusDetail = "Camera is available; AI service is not connected.",
   detectionZone = "Not configured",
-  schoolSchedule = "Not configured",
+  schoolSchedule,
+  onSchoolScheduleChange,
+  scheduleAlertStatus = "",
+  manualMode = false,
+  onManualModeChange,
+  onManualAlertStart,
+  onManualAlertStop,
+  manualAlertActive = false,
   inferenceRate = "—",
   inferenceMs,
   requestMs,
@@ -16,6 +23,15 @@ export default function AIRecognitionPanel({
   zoneIntersections = "—",
 }) {
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(false);
+  const [scheduleDraft, setScheduleDraft] = useState(schoolSchedule || "");
+
+  const saveSchedule = (event) => {
+    event.preventDefault();
+    if (!scheduleDraft) return;
+    onSchoolScheduleChange?.(scheduleDraft);
+    setEditingSchedule(false);
+  };
 
   return (
     <section className="panel ai-panel" aria-label="AI recognition status">
@@ -48,7 +64,22 @@ export default function AIRecognitionPanel({
       </div>
       <div className="metric-list">
         <div><span>Detection zone</span><strong><i className="status-neutral" />{detectionZone}</strong></div>
-        <div><span>School schedule</span><strong><i className="status-neutral" />{schoolSchedule}</strong></div>
+        <div className="school-schedule-row">
+          <span>School schedule</span>
+          <div className="school-schedule-value">
+            <strong>{schoolSchedule ? `Daily at ${schoolSchedule}` : "Not configured"}</strong>
+            <button className="schedule-configure-button" type="button" onClick={() => { setScheduleDraft(schoolSchedule || "08:00"); setEditingSchedule((editing) => !editing); }}>
+              {editingSchedule ? "Cancel" : "Configure"}
+            </button>
+          </div>
+        </div>
+        {editingSchedule && <form className="schedule-form" onSubmit={saveSchedule}>
+          <label htmlFor="school-alert-time">Daily alert time</label>
+          <div><input id="school-alert-time" type="time" required value={scheduleDraft} onChange={(event) => setScheduleDraft(event.target.value)} />
+            <button className="schedule-save-button" type="submit">Save time</button></div>
+          {schoolSchedule && <button className="schedule-clear-button" type="button" onClick={() => { onSchoolScheduleChange?.(""); setEditingSchedule(false); }}>Turn off scheduled alert</button>}
+          <small>Alert repeats daily while this dashboard is open.</small>
+        </form>}
         <div><span>Processed rate</span><strong>{inferenceRate} <small>FPS</small></strong></div>
         {showTechnicalDetails && <>
           <div><span>Model inference</span><strong>{inferenceMs ?? "—"} <small>ms</small></strong></div>
@@ -57,6 +88,17 @@ export default function AIRecognitionPanel({
           <div><span>Zone intersections</span><strong>{zoneIntersections} <small>events</small></strong></div>
         </>}
       </div>
+      {scheduleAlertStatus && <p className="schedule-alert-status" role="status">{scheduleAlertStatus}</p>}
+      <div className="alert-mode-row">
+        <div><strong>Alert mode</strong><small>{manualMode ? "Manual controls detection alerts; scheduled alerts still run." : "Detection alerts run automatically."}</small></div>
+        <button className="alert-mode-toggle" type="button" aria-pressed={manualMode} onClick={() => onManualModeChange?.(!manualMode)}>
+          {manualMode ? "Manual" : "Automatic"}
+        </button>
+      </div>
+      {manualMode && <div className="manual-alert-controls">
+        <button type="button" className="manual-alert-start" onClick={onManualAlertStart} disabled={manualAlertActive}>Trigger alert</button>
+        <button type="button" className="manual-alert-stop" onClick={onManualAlertStop} disabled={!manualAlertActive}>Stop alert</button>
+      </div>}
     </section>
   );
 }

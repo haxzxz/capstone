@@ -192,6 +192,29 @@
 .ai-panel .metric-list strong { color: #304257; font-size: 14px; line-height: 1.45; text-align: right; }
 .ai-panel .metric-list strong small { color: #647487; font-size: 13px; }
 .ai-panel .status-neutral { width: 8px; height: 8px; flex: 0 0 8px; }
+.ai-panel .school-schedule-row { align-items: center; }
+.ai-panel .school-schedule-value { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.ai-panel .school-schedule-value strong { font-size: 13px; }
+.ai-panel .schedule-configure-button,.ai-panel .schedule-save-button,.ai-panel .alert-mode-toggle { min-height: 36px; padding: 6px 10px; border: 1px solid #dce5e9; border-radius: 7px; background: #fff; color: #236b55; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.ai-panel .schedule-configure-button:hover,.ai-panel .schedule-save-button:hover,.ai-panel .alert-mode-toggle:hover { border-color: #b8dfd0; background: #f3faf7; }
+.ai-panel .schedule-form { display: grid; gap: 8px; padding: 12px; border: 1px solid #e3ebe8; border-radius: 9px; background: #f7fbf9; }
+.ai-panel .schedule-form label,.ai-panel .alert-mode-row strong { color: #34465b; font-size: 14px; font-weight: 650; }
+.ai-panel .schedule-form > div { display: flex; gap: 8px; }
+.ai-panel .schedule-clear-button { justify-self: start; padding: 3px 0; border: 0; background: transparent; color: #a34545; font: inherit; font-size: 12px; cursor: pointer; }
+.ai-panel .schedule-form input { min-width: 0; min-height: 38px; flex: 1; padding: 6px 8px; border: 1px solid #dce5e9; border-radius: 7px; background: white; color: #304257; font: inherit; font-size: 15px; }
+.ai-panel .schedule-form small,.ai-panel .alert-mode-row small { color: #647487; font-size: 12px; line-height: 1.4; }
+.ai-panel .alert-mode-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #edf0f3; }
+.ai-panel .alert-mode-row > div { display: grid; gap: 3px; }
+.ai-panel .alert-mode-toggle[aria-pressed="true"] { border-color: #f0d4d4; background: #fff6f6; color: #a63c3c; }
+.ai-panel .manual-alert-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.ai-panel .manual-alert-controls { margin-top: 12px; }
+.ai-panel .manual-alert-controls button { min-height: 44px; border: 1px solid transparent; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.ai-panel .manual-alert-start { background: #c63737; color: #fff; }
+.ai-panel .manual-alert-start:hover { background: #a92b2b; }
+.ai-panel .manual-alert-stop { border-color: #dce5e9 !important; background: #fff; color: #34465b; }
+.ai-panel .manual-alert-controls button:disabled { opacity: .48; cursor: not-allowed; }
+.ai-panel .schedule-configure-button:focus-visible,.ai-panel .schedule-save-button:focus-visible,.ai-panel .schedule-clear-button:focus-visible,.ai-panel .alert-mode-toggle:focus-visible,.ai-panel .manual-alert-controls button:focus-visible,.ai-panel .schedule-form input:focus-visible { outline: 3px solid #20b889; outline-offset: 2px; }
+.ai-panel .schedule-alert-status { margin: 12px 0 0; padding: 10px; border-radius: 8px; background: #f1f8f4; color: #28664f; font-size: 13px; line-height: 1.45; }
 .stat-label { font-size: 13px; }
 .stat-copy small { color: #68798b; font-size: 12px; }
 .camera-name small,.feed-meta,.feed-actions select,.camera-action { font-size: 12px; }
@@ -202,6 +225,14 @@
 .theme-dark .ai-panel .recognition-status p,.theme-dark .ai-panel .metric-list span,.theme-dark .ai-panel .metric-list strong small { color: #b0bdca; }
 .theme-dark .ai-panel .status-details-toggle { border-color: #3a4b59; background: #18232f; color: #9bdcc4; }
 .theme-dark .ai-panel .status-details-toggle:hover { background: #1e302f; }
+.theme-dark .ai-panel .schedule-form { border-color: #2e493e; background: #101d18; }
+.theme-dark .ai-panel .alert-mode-row { border-color: #2a3948; }
+.theme-dark .ai-panel .schedule-alert-status { background: #10241b; color: #a9e3c7; }
+.theme-dark .ai-panel .schedule-form label,.theme-dark .ai-panel .alert-mode-row strong { color: #e2eaf2; }
+.theme-dark .ai-panel .schedule-form small,.theme-dark .ai-panel .alert-mode-row small { color: #b0bdca; }
+.theme-dark .ai-panel .schedule-clear-button { color: #ffaaaa; }
+.theme-dark .ai-panel .schedule-form input,.theme-dark .ai-panel .schedule-configure-button,.theme-dark .ai-panel .schedule-save-button,.theme-dark .ai-panel .alert-mode-toggle,.theme-dark .ai-panel .manual-alert-stop { border-color: #3a4b59; background: #18232f; color: #dce7f1; }
+.theme-dark .ai-panel .alert-mode-toggle[aria-pressed="true"] { border-color: #744040; background: #311f22; color: #ffb3b3; }
 
 @media (max-width: 520px) {
   .ai-panel .panel-heading h2 { font-size: 20px; }
