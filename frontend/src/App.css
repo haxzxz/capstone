@@ -183,7 +183,7 @@
 .ai-panel .recognition-status p { margin-top: 5px; color: #718093; font-size: 14px; line-height: 1.5; }
 .ai-panel .status-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 14px; }
 .ai-panel .status-controls h3 { margin: 0; color: #34465b; font-size: 16px; font-weight: 650; }
-.ai-panel .status-details-toggle { min-height: 40px; padding: 8px 11px; border: 1px solid #dce5e9; border-radius: 8px; background: #fff; color: #236b55; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.ai-panel .status-details-toggle { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; padding: 0; border: 1px solid #dce5e9; border-radius: 8px; background: #fff; color: #236b55; cursor: pointer; }
 .ai-panel .status-details-toggle:hover { border-color: #b8dfd0; background: #f3faf7; }
 .ai-panel .status-details-toggle:focus-visible { outline: 3px solid #20b889; outline-offset: 2px; }
 .ai-panel .metric-list { gap: 15px; padding-top: 16px; }
@@ -192,6 +192,12 @@
 .ai-panel .metric-list strong { color: #304257; font-size: 14px; line-height: 1.45; text-align: right; }
 .ai-panel .metric-list strong small { color: #647487; font-size: 13px; }
 .ai-panel .status-neutral { width: 8px; height: 8px; flex: 0 0 8px; }
+.stat-label { font-size: 13px; }
+.stat-copy small { color: #68798b; font-size: 12px; }
+.camera-name small,.feed-meta,.feed-actions select,.camera-action { font-size: 12px; }
+.stream-badge,.resolution { font-size: 11px; }
+.event-count,.event-row strong,.event-row small,.event-row > b,.empty-events strong,.log-button,.integration-note p,.integration-note strong { font-size: 12px; }
+.theme-dark .stat-copy small { color: #b0bdca; }
 .theme-dark .ai-panel .status-controls h3,.theme-dark .ai-panel .metric-list strong { color: #e2eaf2; }
 .theme-dark .ai-panel .recognition-status p,.theme-dark .ai-panel .metric-list span,.theme-dark .ai-panel .metric-list strong small { color: #b0bdca; }
 .theme-dark .ai-panel .status-details-toggle { border-color: #3a4b59; background: #18232f; color: #9bdcc4; }
@@ -200,6 +206,6 @@
 @media (max-width: 520px) {
   .ai-panel .panel-heading h2 { font-size: 20px; }
   .ai-panel .status-controls { align-items: flex-start; flex-direction: column; }
-  .ai-panel .status-details-toggle { width: 100%; }
+  .ai-panel .status-details-toggle { width: 44px; }
   .ai-panel .metric-list > div { gap: 8px; }
 }

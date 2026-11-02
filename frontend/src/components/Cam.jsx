@@ -353,7 +353,7 @@ export default function Cam() {
               }}
             />
             <StatsGrid stats={[
-              { label: "Pedestrians detected", value: result?.total_people_seen ?? "—", note: result ? `${result.count} in current frame` : "Awaiting AI inference", icon: "scan", tone: "tone-blue" },
+              { label: "Pedestrians detected", value: result?.count ?? "—", note: result ? "Currently in camera view" : "Awaiting AI inference", icon: "scan", tone: "tone-blue" },
               { label: "Alerts triggered", value: events.length, note: "Recent detection events", icon: "alert", tone: "tone-amber" },
               { label: "Detection confidence", value: result?.average_confidence != null ? `${result.average_confidence}%` : "—", note: "Current frame average", icon: "pulse", tone: "tone-green" },
             ]} />

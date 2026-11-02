@@ -38,10 +38,12 @@ export default function AIRecognitionPanel({
         <button
           className="status-details-toggle"
           type="button"
+          aria-label={showTechnicalDetails ? "Hide technical details" : "Show technical details"}
           aria-expanded={showTechnicalDetails}
+          title={showTechnicalDetails ? "Hide technical details" : "Show technical details"}
           onClick={() => setShowTechnicalDetails((shown) => !shown)}
         >
-          {showTechnicalDetails ? "Hide technical details" : "Show technical details"}
+          <Icon name={showTechnicalDetails ? "eyeOff" : "eye"} size={21} />
         </button>
       </div>
       <div className="metric-list">
