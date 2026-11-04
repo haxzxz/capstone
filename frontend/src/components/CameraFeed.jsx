@@ -7,6 +7,7 @@ const statusLabels = {
   idle: { badge: "STREAM OFFLINE", title: "Camera is offline", detail: "Turn on the camera to resume the live view." },
 };
 
+/** Renders the local video, detection/zone overlay, zone editor, and camera controls. */
 export default function CameraFeed({
   videoRef,
   status,
@@ -35,6 +36,7 @@ export default function CameraFeed({
   const viewWidth = frameWidth || videoRef.current?.videoWidth || 640;
   const viewHeight = frameHeight || videoRef.current?.videoHeight || 360;
 
+  // Convert pointer coordinates through object-fit: cover's crop so zones align with source-frame coordinates.
   const pointerToNormalized = (event) => {
     const rect = cameraViewRef.current.getBoundingClientRect();
     const video = videoRef.current;
@@ -74,6 +76,7 @@ export default function CameraFeed({
     };
     dragStartRef.current = null;
     setDraftZone(null);
+    // Reject accidental clicks and tiny selections that would be hard to inspect or use reliably.
     if (nextZone.width >= 0.02 && nextZone.height >= 0.02) {
       onDetectionZoneChange(nextZone);
       onEditingZoneChange(false);

@@ -1,5 +1,9 @@
 class PedestrianAlertController:
-    """Track adaptive dwell time and serialize alerts behind alert playback."""
+    """Track adaptive dwell time and serialize alerts behind alert playback.
+
+    The caller supplies monotonic time and a zone identity. Group-size changes adjust the
+    required dwell duration without resetting elapsed time; an empty frame or changed zone resets it.
+    """
 
     def __init__(self, one_person_seconds=12.0, two_persons_seconds=8.0, three_or_more_seconds=5.0):
         self.one_person_seconds = max(0.0, float(one_person_seconds))
@@ -10,6 +14,7 @@ class PedestrianAlertController:
         self.alert_playing = False
 
     def update(self, people_count, zone_key, now):
+        # Changing the monitored area starts a fresh dwell interval; changing group size does not.
         if zone_key != self.zone_key:
             self.zone_key = zone_key
             self.started_at = None
@@ -19,6 +24,7 @@ class PedestrianAlertController:
             return {"trigger": False, "pending": False, "alert_playing": self.alert_playing}
 
         if self.alert_playing:
+            # Keep later triggers serialized until the browser acknowledges audio completion.
             return {"trigger": False, "pending": False, "alert_playing": True}
 
         if people_count == 1:
@@ -38,5 +44,6 @@ class PedestrianAlertController:
         return {"trigger": False, "pending": True, "alert_playing": False}
 
     def finish_alert(self):
+        """Release the playback lock and require a fresh dwell period for the next alert."""
         self.alert_playing = False
         self.started_at = None

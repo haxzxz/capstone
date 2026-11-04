@@ -7,6 +7,7 @@ const errorMessages = {
   OverconstrainedError: "That camera is no longer available. Choose another camera.",
 };
 
+/** Owns camera permission, stream lifecycle, device selection, and stale-request cancellation. */
 export default function useCameraStream() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -17,18 +18,21 @@ export default function useCameraStream() {
   const [cameraId, setCameraId] = useState("");
 
   const releaseStream = useCallback(() => {
+    // Stop every media track before dropping the stream so the camera indicator turns off promptly.
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
 
   const start = useCallback(async (deviceId = "") => {
+    // Ignore late getUserMedia/enumerateDevices results after a newer start or stop request.
     const currentRequest = ++requestId.current;
     releaseStream();
     setStatus("starting");
     setError("");
 
     try {
+      // Prefer HD defaults; a user-selected device is requested exactly to avoid silent device changes.
       const stream = await navigator.mediaDevices.getUserMedia({
         video: deviceId
           ? { deviceId: { exact: deviceId } }

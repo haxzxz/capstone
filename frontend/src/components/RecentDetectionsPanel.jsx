@@ -1,5 +1,6 @@
 import Icon from "./Icon.jsx";
 
+/** Show the latest event rows and link to the complete backend CSV exports. */
 export default function RecentDetectionsPanel({ events = [], unavailable = true }) {
   return (
     <section className="panel alerts-panel" aria-label="Recent detection events">

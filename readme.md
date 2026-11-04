@@ -73,6 +73,10 @@ It automatically uses CUDA device 0 when PyTorch can run on it and otherwise use
 
 Use `--device cpu` to force CPU inference, or pass a video file / stream URL with `--camera`.
 
+## ESP32-S3 alert hardware simulation
+
+The `wokwi` folder contains a PlatformIO/Wokwi project for simulating the alert lights and buzzer on an ESP32-S3. Start it in VS Code with PlatformIO and the Wokwi extension; the default simulation uses a local test button. To receive real FastAPI alerts, follow the backend-connected setup in `wokwi/README.md` and enable Wokwi's Private IoT Gateway.
+
 The dashboard sends JPEG frames up to 640 pixels wide and checks for a frame every 5 ms (a nominal 200 sampling checks per second) while the camera is live. The browser preview stays at the camera's own frame rate; AI detection runs on sampled frames and returns bounding boxes and metrics. The browser skips a sampling tick while a previous detection request is still in progress, so the actual inference rate is limited by frame encoding, API, model processing, camera frame rate, and browser timer scheduling. The backend selects a usable GPU automatically and falls back to CPU if CUDA is unavailable or fails the startup warmup. GPU availability, selected device, and PyTorch CUDA runtime are exposed by `/api/health` and `/api/summary`; detection responses include model inference, API processing, and processed-frame-rate metrics. The dashboard measures browser round-trip time separately.
 
 While the camera is live, select **Edit detection area** and drag a rectangle over the feed. The API counts person detections whose box center falls inside that rectangle. The selected area is saved in the browser; use **Use full frame** to clear it.

@@ -1,3 +1,4 @@
+/* Dashboard layout, camera overlays, panels, and responsive breakpoints. */
 #root { min-height: 100vh; }
 
 .monitor-app { min-height: 100vh; background: #f4f6f9; color: #172235; }

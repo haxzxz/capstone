@@ -16,6 +16,7 @@ const ALERT_MODE_STORAGE_KEY = "school-zone-alert-manual-mode";
 const LAST_SCHEDULED_ALERT_STORAGE_KEY = "school-zone-last-successful-alert";
 const THEME_STORAGE_KEY = "school-zone-theme";
 
+// The browser owns user preferences and media playback; the API owns detection state and dwell timing.
 function loadDetectionZone() {
   try {
     const zone = JSON.parse(window.localStorage.getItem(DETECTION_ZONE_STORAGE_KEY));
@@ -73,6 +74,7 @@ export default function Cam() {
   }, [darkMode]);
 
   const stopStandbySound = () => {
+    // Invalidating the generation prevents a late ended/error callback from restarting a stopped loop.
     standbyGenerationRef.current += 1;
     window.clearTimeout(standbyTimerRef.current);
     standbyTimerRef.current = null;
@@ -139,6 +141,7 @@ export default function Cam() {
     } catch {
       // A blocked or unavailable alert sound should not prevent standby mode.
     } finally {
+      // Only the current playback may unlock the backend or restart standby audio.
       if (generation === alertPlaybackGenerationRef.current) {
         await fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
         alertPlayingRef.current = false;
@@ -199,6 +202,7 @@ export default function Cam() {
     let targetDate = new Date();
     targetDate.setHours(hour, minute, 0, 0);
     if (targetDate.getTime() < Date.now() - 2 * 60 * 1000) targetDate.setDate(targetDate.getDate() + 1);
+    // Polling also recovers if the tab was briefly throttled around the target time.
     const checkScheduledAlert = () => {
       const now = new Date();
       if (now.toDateString() !== targetDate.toDateString()) {
@@ -306,10 +310,12 @@ export default function Cam() {
 
   useEffect(() => {
     let active = true;
+    // A single in-flight request bounds memory and ensures displayed boxes belong to a recent frame.
     let busy = false;
     let timer;
     const processFrame = async () => {
       const video = camera.videoRef.current;
+      // Do not queue stale frames: inference runs as fast as the previous request allows.
       if (!active || busy || camera.status !== "live" || !video || video.readyState < 2) return;
       busy = true;
       try {

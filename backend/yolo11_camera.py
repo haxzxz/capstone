@@ -28,6 +28,7 @@ def parse_args():
 
 
 def main():
+    """Warm the selected device, stream predictions, and always release camera/UI resources."""
     args = parse_args()
     device = args.device
     if device == "auto":
@@ -67,6 +68,7 @@ def main():
         using_cuda = False
         model = YOLO(args.model)
 
+    # stream_buffer=False favors the newest camera frame when inference cannot keep up.
     results = model.predict(
         source=args.camera,
         stream=True,

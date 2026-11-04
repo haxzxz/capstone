@@ -1,3 +1,4 @@
+// Centralize inline SVG paths so dashboard controls share the same stroke and sizing treatment.
 const iconPaths = {
   camera: <><path d="M14 5 12.5 7h-5L6 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3l-1.5-2h-4Z"/><circle cx="12" cy="12" r="3.5"/></>,
   scan: <><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M4 12h16"/></>,

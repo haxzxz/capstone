@@ -1,3 +1,5 @@
+"""FastAPI service for browser frame inference, alert state, persistence, and data exports."""
+
 import io
 import json
 import logging
@@ -26,6 +28,7 @@ except ImportError:
     from alert_logic import PedestrianAlertController
 
 
+# Runtime settings are environment driven so the same API can run on CPU-only and CUDA hosts.
 MODEL_PATH = os.getenv("YOLO_MODEL", "yolo11m.pt")
 DEVICE_SETTING = os.getenv("YOLO_DEVICE", "auto").strip().lower()
 IMAGE_SIZE = int(os.getenv("YOLO_IMAGE_SIZE", "416"))
@@ -38,6 +41,7 @@ EXPORT_DIRECTORY = Path(__file__).with_name("export")
 ALERT_ONE_PERSON_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_ONE_PERSON_DWELL_SECONDS", "12")))
 ALERT_TWO_PERSON_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_TWO_PERSON_DWELL_SECONDS", "8")))
 ALERT_THREE_OR_MORE_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_THREE_OR_MORE_DWELL_SECONDS", "5")))
+HARDWARE_ALERT_ENABLED = os.getenv("HARDWARE_ALERT_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
 STANDBY_BEEP_DELAY_SECONDS = 1.0
 AUDIO_SOURCE_DIRECTORY = Path(__file__).with_name("source")
 logger = logging.getLogger(__name__)
@@ -60,10 +64,13 @@ alert_controller = PedestrianAlertController(
     ALERT_TWO_PERSON_DWELL_SECONDS,
     ALERT_THREE_OR_MORE_DWELL_SECONDS,
 )
+# Keep hardware delivery independent from browser audio playback acknowledgments.
+hardware_alert_active = False
 
 
 @app.get("/api/audio/{filename}")
 def get_alert_audio(filename: str):
+    """Serve only the packaged alert sounds; arbitrary filesystem paths are not accepted."""
     if filename not in {"beep1.mp3", "beep3.mp3"}:
         raise HTTPException(status_code=404, detail="Audio file not found.")
     path = AUDIO_SOURCE_DIRECTORY / filename
@@ -74,6 +81,24 @@ def get_alert_audio(filename: str):
 
 @app.post("/api/alert-finished")
 def alert_finished():
+    """Let the browser release the alert playback lock after audio ends or is stopped."""
+    # When hardware delivery is enabled, wait for the MCU to acknowledge its output sequence.
+    if not hardware_alert_active:
+        alert_controller.finish_alert()
+    return {"status": "ready"}
+
+
+@app.get("/api/hardware-alert")
+def hardware_alert_status():
+    """Expose the active alert latch for an ESP32 polling over the local network."""
+    return {"active": hardware_alert_active, "enabled": HARDWARE_ALERT_ENABLED}
+
+
+@app.post("/api/hardware-alert/finished")
+def hardware_alert_finished():
+    """Acknowledge that the external light/sound sequence completed."""
+    global hardware_alert_active
+    hardware_alert_active = False
     alert_controller.finish_alert()
     return {"status": "ready"}
 
@@ -85,6 +110,7 @@ def connect_database():
 
 
 def initialize_database():
+    """Create the local SQLite schema idempotently before serving API requests."""
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     with closing(connect_database()) as connection:
         connection.execute("PRAGMA journal_mode=WAL")
@@ -121,6 +147,7 @@ def initialize_database():
 
 
 def get_recent_events(limit=100):
+    """Return newest-first event rows in the camelCase shape expected by the dashboard."""
     with closing(connect_database()) as connection:
         rows = connection.execute(
             "SELECT id, label, time, confidence, zone_result FROM detection_events ORDER BY id DESC LIMIT ?",
@@ -134,12 +161,14 @@ def get_recent_events(limit=100):
 
 
 def get_people_seen():
+    """Read the persisted cumulative detection count shown in dashboard summaries."""
     with closing(connect_database()) as connection:
         row = connection.execute("SELECT people_seen FROM dashboard_stats WHERE id = 1").fetchone()
     return row["people_seen"]
 
 
 def save_telemetry(timestamp, fps, detections, detection_zone, inference_ms):
+    """Append one record per processed frame; intrusion stays NULL when no zone is configured."""
     intrusion = bool(detections) if detection_zone else None
     mean_confidence = (
         sum(item["confidence"] for item in detections) / len(detections) if detections else None
@@ -169,6 +198,7 @@ def save_telemetry(timestamp, fps, detections, detection_zone, inference_ms):
 
 
 def get_telemetry_cipher():
+    """Build the export cipher from an explicit key or a race-safe generated local key file."""
     if TELEMETRY_ENCRYPTION_KEY:
         return Fernet(TELEMETRY_ENCRYPTION_KEY.encode("ascii"))
 
@@ -207,6 +237,7 @@ def get_model():
         except Exception:
             if not automatic or target_device == "cpu":
                 raise
+            # Include the warmup in device selection: CUDA may be visible yet fail on the first real kernel.
             logger.exception("CUDA model startup failed; falling back to CPU")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -219,6 +250,7 @@ def get_model():
 
 
 def _load_and_warm_model(device):
+    """Load the model and run a representative prediction so startup catches device errors."""
     loaded_model = YOLO(MODEL_PATH)
     loaded_model.to(f"cuda:{device}" if device.isdigit() else device)
     loaded_model.predict(
@@ -253,6 +285,7 @@ def api_device_name(device):
 
 
 def parse_detection_zone(value):
+    """Parse and validate the browser's normalized rectangle header; absent means full frame."""
     if not value or value == "null":
         return None
     try:
@@ -260,6 +293,7 @@ def parse_detection_zone(value):
         x, y, width, height = (zone[key] for key in ("x", "y", "width", "height"))
         if not all(isinstance(item, (int, float)) and math.isfinite(item) for item in (x, y, width, height)):
             raise ValueError("Zone coordinates must be finite numbers.")
+        # Coordinates are normalized against the submitted frame, matching the browser's resize-safe overlay.
         if x < 0 or y < 0 or width <= 0 or height <= 0 or x + width > 1 or y + height > 1:
             raise ValueError("Zone must be a non-empty rectangle inside the camera frame.")
         return {"x": x, "y": y, "width": width, "height": height}
@@ -268,6 +302,7 @@ def parse_detection_zone(value):
 
 
 def gpu_status():
+    """Report CUDA visibility separately from the device chosen for the loaded model."""
     available = torch.cuda.is_available()
     index = cuda_device_index(active_device) if active_device and is_cuda_device(active_device) else 0
     return {
@@ -279,6 +314,7 @@ def gpu_status():
 
 @app.get("/api/health")
 def health():
+    """Lightweight readiness endpoint; it reports standby until first inference loads YOLO."""
     gpu = gpu_status()
     return {
         "status": "ready" if model is not None else "standby",
@@ -291,6 +327,7 @@ def health():
 
 @app.get("/api/summary")
 def summary():
+    """Provide persisted dashboard totals and recent events without running inference."""
     return {
         "status": "ready" if model is not None else "standby",
         "model": MODEL_PATH,
@@ -304,6 +341,7 @@ def summary():
 
 @app.get("/api/events/export")
 def export_events():
+    """Export the full event history as a spreadsheet-friendly UTF-8 CSV."""
     output = StringIO(newline="")
     csv_writer = writer(output)
     csv_writer.writerow(("Timestamp", "Event", "Confidence (%)", "Zone result"))
@@ -325,6 +363,7 @@ def export_events():
 
 @app.get("/api/telemetry/export")
 def export_telemetry():
+    """Encrypt the full frame telemetry CSV before returning it to the browser."""
     output = StringIO(newline="")
     csv_writer = writer(output)
     csv_writer.writerow((
@@ -358,7 +397,8 @@ def export_telemetry():
 
 @app.post("/api/detect")
 async def detect(request: Request):
-    global person_was_present
+    """Decode one JPEG/PNG frame, run person detection, persist metrics, and return overlay data."""
+    global hardware_alert_active, person_was_present
     request_started_at = time.perf_counter()
     image_bytes = await request.body()
     if not image_bytes:
@@ -393,6 +433,7 @@ async def detect(request: Request):
         raise HTTPException(status_code=503, detail=f"Detection model failed: {error}") from error
 
     detections = []
+    # Zone membership uses the box center, so partial overlap at a zone edge does not count as entry.
     for box in result.boxes:
         class_id = int(box.cls[0].item())
         label = result.names[class_id]
@@ -414,6 +455,7 @@ async def detect(request: Request):
 
     now = datetime.now(timezone.utc).isoformat()
     event = None
+    # Events mark the transition from an empty frame to an occupied frame, not every sampled frame.
     if detections and not person_was_present:
         event = {
             "id": now,
@@ -429,6 +471,8 @@ async def detect(request: Request):
         detection_zone[key] for key in ("x", "y", "width", "height")
     )
     alert_status = alert_controller.update(people_count, zone_key, time.monotonic())
+    if alert_status["trigger"] and HARDWARE_ALERT_ENABLED:
+        hardware_alert_active = True
 
     with closing(connect_database()) as connection:
         connection.execute("UPDATE dashboard_stats SET people_seen = people_seen + ? WHERE id = 1", (len(detections),))
@@ -438,6 +482,7 @@ async def detect(request: Request):
                 (event["id"], event["label"], event["time"], event["confidence"], event["zoneResult"]),
             )
         connection.commit()
+    # This deque yields a rolling processed-frame rate; it is not the camera's capture FPS.
     frame_times.append(time.monotonic())
     fps = 0
     if len(frame_times) > 1 and frame_times[-1] > frame_times[0]:

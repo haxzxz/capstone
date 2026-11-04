@@ -7,6 +7,8 @@ except ImportError:
 
 
 class PedestrianAlertControllerTests(unittest.TestCase):
+    """Cover dwell thresholds, resets, adaptive group timing, and playback serialization."""
+
     def setUp(self):
         self.controller = PedestrianAlertController(12, 8, 5)
         self.zone = (0.0, 0.0, 1.0, 1.0)

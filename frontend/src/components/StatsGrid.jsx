@@ -6,6 +6,7 @@ const defaultStats = [
   { label: "Detection confidence", value: "—", note: "YOLOv11 model feed", icon: "pulse", tone: "tone-green" },
 ];
 
+// Keep the card presentation shared so metric ordering and styling stay consistent.
 function StatCard({ label, value, note, icon, tone }) {
   return (
     <article className="stat-card">

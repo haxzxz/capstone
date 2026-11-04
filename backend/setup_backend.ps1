@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+# Create an isolated backend environment, then choose a PyTorch wheel that can actually run here.
 
 $BackendDir = $PSScriptRoot
 $VenvDir = Join-Path $BackendDir ".venv"
@@ -20,12 +21,14 @@ if ($LASTEXITCODE -ne 0) { throw "Could not upgrade pip." }
 if ($LASTEXITCODE -ne 0) { throw "Could not install backend requirements." }
 
 function Test-TorchCuda {
+    # Availability alone is insufficient: allocate and synchronize a CUDA tensor to catch driver/runtime mismatches.
     $Probe = "import torch; assert torch.cuda.is_available(); x=torch.ones((16,), device='cuda:0'); torch.cuda.synchronize(); print('CUDA ready:', torch.__version__, torch.cuda.get_device_name(0), torch.cuda.get_device_capability(0))"
     & $VenvPython -c $Probe | Out-Host
     return $LASTEXITCODE -eq 0
 }
 
 function Install-TorchWheel([string[]]$Packages, [string]$IndexUrl) {
+    # Force replacement so a failed CUDA probe cannot leave a partially compatible torch install behind.
     & $VenvPython -m pip install --upgrade --force-reinstall @Packages --index-url $IndexUrl | Out-Host
     return $LASTEXITCODE -eq 0
 }

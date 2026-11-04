@@ -1,5 +1,6 @@
 import Icon from "./Icon.jsx";
 
+/** Display the dashboard's local wall clock; alert scheduling uses this same browser timezone. */
 export default function ClockBadge({ date = new Date() }) {
   return (
     <div className="clock-card">

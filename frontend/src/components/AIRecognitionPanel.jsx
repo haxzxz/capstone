@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "./Icon.jsx";
 
+/** Present model/service metrics and provide schedule and manual alert controls. */
 export default function AIRecognitionPanel({
   modelName = "YOLOv11",
   modelDescription = "Pedestrian detection model",
@@ -27,6 +28,7 @@ export default function AIRecognitionPanel({
   const [scheduleDraft, setScheduleDraft] = useState(schoolSchedule || "");
 
   const saveSchedule = (event) => {
+    // Keep the schedule in the parent so persistence and the daily timer have one source of truth.
     event.preventDefault();
     if (!scheduleDraft) return;
     onSchoolScheduleChange?.(scheduleDraft);
