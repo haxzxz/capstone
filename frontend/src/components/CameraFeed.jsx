@@ -36,20 +36,20 @@ export default function CameraFeed({
   const viewWidth = frameWidth || videoRef.current?.videoWidth || 640;
   const viewHeight = frameHeight || videoRef.current?.videoHeight || 360;
 
-  // Convert pointer coordinates through object-fit: cover's crop so zones align with source-frame coordinates.
+  // Convert pointer coordinates through object-fit: contain's letterboxing so zones align with source-frame coordinates.
   const pointerToNormalized = (event) => {
     const rect = cameraViewRef.current.getBoundingClientRect();
     const video = videoRef.current;
     const sourceWidth = video?.videoWidth || viewWidth;
     const sourceHeight = video?.videoHeight || viewHeight;
-    const scale = Math.max(rect.width / sourceWidth, rect.height / sourceHeight);
+    const scale = Math.min(rect.width / sourceWidth, rect.height / sourceHeight);
     const renderedWidth = sourceWidth * scale;
     const renderedHeight = sourceHeight * scale;
-    const cropX = (renderedWidth - rect.width) / 2;
-    const cropY = (renderedHeight - rect.height) / 2;
+    const offsetX = (rect.width - renderedWidth) / 2;
+    const offsetY = (rect.height - renderedHeight) / 2;
     return {
-      x: Math.max(0, Math.min(1, (event.clientX - rect.left + cropX) / renderedWidth)),
-      y: Math.max(0, Math.min(1, (event.clientY - rect.top + cropY) / renderedHeight)),
+      x: Math.max(0, Math.min(1, (event.clientX - rect.left - offsetX) / renderedWidth)),
+      y: Math.max(0, Math.min(1, (event.clientY - rect.top - offsetY) / renderedHeight)),
     };
   };
 
@@ -100,7 +100,6 @@ export default function CameraFeed({
           <span className={`stream-badge ${live ? "stream-badge-live" : ""}`}>
             {live ? "STREAM LIVE" : offlineContent.badge}
           </span>
-          <span className="resolution">{live ? "LIVE FEED" : "NO SIGNAL"}</span>
         </div>
       </div>
 
@@ -110,7 +109,7 @@ export default function CameraFeed({
           <svg
             className="camera-detection-overlay"
             viewBox={`0 0 ${viewWidth} ${viewHeight}`}
-            preserveAspectRatio="xMidYMid slice"
+            preserveAspectRatio="xMidYMid meet"
             role={editingZone ? "application" : "img"}
             aria-label={editingZone ? "Drag on the camera image to draw the detection area" : `${detections.length} people detected`}
             style={{ pointerEvents: editingZone ? "auto" : "none", touchAction: editingZone ? "none" : "auto", cursor: editingZone ? "crosshair" : "default" }}

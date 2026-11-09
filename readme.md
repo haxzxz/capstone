@@ -9,7 +9,7 @@ Set up and start the backend in one terminal. The setup script detects the NVIDI
 ```powershell
 cd backend
 .\setup_backend.ps1
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Start the frontend in another terminal:
@@ -60,7 +60,7 @@ The API must be securely reachable by every browser that uses the dashboard. A p
 
 ### 1. Prepare the on-site computer
 
-Install Python and follow the backend setup in [Run locally](#run-locally). Keep the computer powered on and connected to the network. Reserve its LAN IP address in the router so the ESP32-S3 endpoint remains stable. Configure the selected VPN or HTTPS gateway to forward requests to FastAPI on `127.0.0.1:8000`; use authentication and HTTPS for browser access.
+Install Python and follow the backend setup in [Run locally](#run-locally). Keep the computer powered on and connected to the network. Reserve its LAN IP address in the router so the ESP32-S3 endpoint remains stable. Bind FastAPI to the computer's network interfaces so the ESP32 can reach it; configure the selected VPN or HTTPS gateway to forward browser requests to that same on-site service. Use authentication and HTTPS for browser access.
 
 From PowerShell, start the API with hardware alerts enabled and the dashboard's online origin permitted. Replace the example origin with the exact HTTPS URL of the deployed dashboard (no trailing slash):
 
@@ -68,7 +68,7 @@ From PowerShell, start the API with hardware alerts enabled and the dashboard's 
 cd backend
 $env:HARDWARE_ALERT_ENABLED = "1"
 $env:FRONTEND_ORIGINS = "https://your-dashboard.example"
-.\.venv\Scripts\uvicorn.exe main:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\uvicorn.exe main:app --host 0.0.0.0 --port 8000
 ```
 
 The first model inference may download the model specified by `YOLO_MODEL` (default `yolo11m.pt`), so ensure the on-site computer has internet access for initial setup or place the model file there in advance. Keep `DATABASE_PATH` and the telemetry encryption key in persistent on-site storage and back them up securely.
@@ -89,7 +89,7 @@ Verify that the API gateway forwards `/api/*` to the on-site FastAPI server, tha
 
 ### 3. Configure the ESP32-S3
 
-For the physical ESP32-S3, configure the Wi-Fi SSID/password for the school network and set `BACKEND_API_URL` in `wokwi/src/main.cpp` to the on-site computer's reserved LAN address, for example `http://192.168.1.50:8000`. Do not use `host.wokwi.internal` or `Wokwi-GUEST`; those are for Wokwi simulation. Build and flash with `USE_BACKEND_API=1`, then confirm the board can reach `GET /api/hardware-alert` and post its completion to `/api/hardware-alert/finished`.
+For the physical ESP32-S3, follow [the hardware setup guide](hardware/README.md). Configure Wi-Fi credentials, the API address, GPIO pins, and alert timing in the dashboard's **ESP32 settings** panel while the board is connected by USB-C. The firmware stores these settings on the board; Wi-Fi carries the alert API requests during normal use.
 
 Keep the API gateway and ESP32 settings aligned with the same FastAPI instance. If the computer is unavailable, the online dashboard may load but live detection and hardware alerts will not work.
 
@@ -126,9 +126,9 @@ It automatically uses CUDA device 0 when PyTorch can run on it and otherwise use
 
 Use `--device cpu` to force CPU inference, or pass a video file / stream URL with `--camera`.
 
-## ESP32-S3 alert hardware simulation
+## ESP32-S3 alert hardware
 
-The `wokwi` folder contains a PlatformIO/Wokwi project for simulating the alert lights and buzzer on an ESP32-S3. Start it in VS Code with PlatformIO and the Wokwi extension; the default simulation uses a local test button. To receive real FastAPI alerts, follow the backend-connected setup in `wokwi/README.md` and enable Wokwi's Private IoT Gateway.
+The `hardware` folder contains PlatformIO firmware for the physical ESP32-S3 with alert and ready indicator lights plus a passive piezo buzzer. See [the hardware setup guide](hardware/README.md) for wiring, Wi-Fi configuration, upload, and backend setup.
 
 The dashboard sends JPEG frames up to 640 pixels wide and checks for a frame every 5 ms (a nominal 200 sampling checks per second) while the camera is live. The browser preview stays at the camera's own frame rate; AI detection runs on sampled frames and returns bounding boxes and metrics. The browser skips a sampling tick while a previous detection request is still in progress, so the actual inference rate is limited by frame encoding, API, model processing, camera frame rate, and browser timer scheduling. The backend selects a usable GPU automatically and falls back to CPU if CUDA is unavailable or fails the startup warmup. GPU availability, selected device, and PyTorch CUDA runtime are exposed by `/api/health` and `/api/summary`; detection responses include model inference, API processing, and processed-frame-rate metrics. The dashboard measures browser round-trip time separately.
 

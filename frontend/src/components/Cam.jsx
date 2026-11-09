@@ -4,10 +4,10 @@ import AIRecognitionPanel from "./AIRecognitionPanel.jsx";
 import CameraFeed from "./CameraFeed.jsx";
 import ClockBadge from "./ClockBadge.jsx";
 import HardwareAlertNote from "./HardwareAlertNote.jsx";
-import Header from "./Header.jsx";
+import HardwareSettings from "./HardwareSettings.jsx";
 import Icon from "./Icon.jsx";
 import RecentDetectionsPanel from "./RecentDetectionsPanel.jsx";
-import StatsGrid from "./StatsGrid.jsx";
+import PerformanceDashboard from "./PerformanceDashboard.jsx";
 import { apiUrl } from "../api.js";
 
 const DETECTION_ZONE_STORAGE_KEY = "school-zone-detection-area";
@@ -33,6 +33,7 @@ export default function Cam() {
   const camera = useCameraStream();
   const [clock, setClock] = useState(() => new Date());
   const canvasRef = useRef(null);
+  const menuRef = useRef(null);
   const standbyTimerRef = useRef(null);
   const standbyAudioRef = useRef(null);
   const standbyPlayingRef = useRef(false);
@@ -43,10 +44,12 @@ export default function Cam() {
   const alertPlaybackGenerationRef = useRef(0);
   const previousManualModeRef = useRef(false);
   const standbyDelayRef = useRef(1);
+  const lastPerformanceSampleRef = useRef(0);
   const [serviceState, setServiceState] = useState("checking");
   const [serviceMessage, setServiceMessage] = useState("Checking Python detection service…");
   const [result, setResult] = useState(null);
   const [events, setEvents] = useState([]);
+  const [performanceSamples, setPerformanceSamples] = useState([]);
   const [cameraFps, setCameraFps] = useState(0);
   const [detectionZone, setDetectionZone] = useState(loadDetectionZone);
   const [editingZone, setEditingZone] = useState(false);
@@ -68,6 +71,42 @@ export default function Cam() {
     try { return window.localStorage.getItem(THEME_STORAGE_KEY) === "dark"; }
     catch { return false; }
   });
+  const [wideScreen, setWideScreen] = useState(() => window.matchMedia("(min-width: 1200px)").matches);
+  const [activePanel, setActivePanel] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const screenQuery = window.matchMedia("(min-width: 1200px)");
+    const updateLayout = (event) => setWideScreen(event.matches);
+    setWideScreen(screenQuery.matches);
+    screenQuery.addEventListener("change", updateLayout);
+    return () => screenQuery.removeEventListener("change", updateLayout);
+  }, []);
+
+  useEffect(() => {
+    if (wideScreen) setActivePanel(null);
+  }, [wideScreen]);
+
+  useEffect(() => {
+    if (!activePanel && !menuOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setActivePanel(null);
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [activePanel, menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (!menuRef.current?.contains(event.target)) setMenuOpen(false);
+    };
+    window.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => window.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [menuOpen]);
 
   useEffect(() => {
     try { window.localStorage.setItem(THEME_STORAGE_KEY, darkMode ? "dark" : "light"); }
@@ -345,6 +384,16 @@ export default function Cam() {
         if (!active) return;
         setResult(data);
         setEvents(data.events || []);
+        const sampleTime = Date.now();
+        if (sampleTime - lastPerformanceSampleRef.current >= 1000) {
+          lastPerformanceSampleRef.current = sampleTime;
+          setPerformanceSamples((samples) => [...samples, {
+            time: sampleTime,
+            fps: Number(data.inference_fps),
+            latencyMs: Number(data.inference_ms),
+            people: Number(data.count),
+          }].slice(-30));
+        }
         setServiceState("live");
         setServiceMessage("Python is processing the live camera feed.");
         const settings = data.alert_settings || {};
@@ -378,9 +427,37 @@ export default function Cam() {
     };
   }, [camera.status, camera.videoRef, detectionZone, soundEnabled, manualMode]);
 
+  const systemStatusPanel = <AIRecognitionPanel
+    modelName={result?.model || "YOLO11m"}
+    modelDescription={result?.device ? `Python person detection model · ${result.device} inference` : "Python person detection model · automatic device selection"}
+    status={serviceState === "live" ? "LIVE" : serviceState === "error" ? "OFFLINE" : "CONNECTING"}
+    statusMessage={serviceState === "live" ? "Detection feed active" : serviceState === "error" ? "Detection service unavailable" : "Connecting to Python service"}
+    statusDetail={serviceMessage}
+    detectionZone={result?.count ? "Person detected" : result ? "Clear" : "Waiting for feed"}
+    schoolSchedule={alertSchedule}
+    onSchoolScheduleChange={(time) => { setAlertSchedule(time); setScheduleAlertStatus(""); }}
+    scheduleAlertStatus={scheduleAlertStatus}
+    manualMode={manualMode}
+    onManualModeChange={setManualMode}
+    onManualAlertStart={() => { standbyWantedRef.current = false; stopStandbySound(); void playAlertSound(true); }}
+    onManualAlertStop={stopAlertSound}
+    manualAlertActive={manualAlertActive}
+    inferenceRate={result?.inference_fps ?? "—"}
+    inferenceMs={result?.inference_ms}
+    requestMs={result?.request_ms}
+    roundTripMs={result?.round_trip_ms}
+    zoneIntersections={result?.count ?? "—"}
+  />;
+  const performanceDashboard = <PerformanceDashboard samples={performanceSamples} live={serviceState === "live"} />;
+  const recentEventsPanel = <RecentDetectionsPanel events={events} unavailable={serviceState !== "live"} />;
+  const deviceSetupPanels = <><HardwareAlertNote /><HardwareSettings /></>;
+  const openPanel = (panel) => {
+    setActivePanel(panel);
+    setMenuOpen(false);
+  };
+
   return (
     <main className={`monitor-app${darkMode ? " theme-dark" : ""}`}>
-      <Header aria-label="Customizable header area" />
       <div className="monitor-content">
         <div className="page-intro">
           <div>
@@ -412,10 +489,35 @@ export default function Cam() {
               <span>Sound {soundEnabled ? "on" : "off"}</span>
             </button>
             <ClockBadge date={clock} />
+            <div className="tools-menu" ref={menuRef}>
+              <button className={`tools-menu-trigger${menuOpen ? " is-open" : ""}`} type="button" aria-label={menuOpen ? "Close dashboard menu" : "Open dashboard menu"} aria-expanded={menuOpen} aria-controls="dashboard-tools-menu" title="Dashboard menu" onClick={() => setMenuOpen((open) => !open)}>
+                <Icon name={menuOpen ? "close" : "menu"} size={19} />
+              </button>
+              {menuOpen && <nav className="tools-menu-dropdown" id="dashboard-tools-menu" aria-label="Dashboard sections">
+                <button className="menu-option" type="button" onClick={() => openPanel("status")}>
+                  <span className="menu-option-icon menu-option-status"><Icon name="pulse" size={18} /></span>
+                  <span><strong>System status</strong><small>{serviceState === "live" ? "Detection is active" : "View service status"}</small></span>
+                  <i className={`menu-status-dot${serviceState === "live" ? " is-live" : ""}`} />
+                </button>
+                <button className="menu-option" type="button" onClick={() => openPanel("events")}>
+                  <span className="menu-option-icon menu-option-events"><Icon name="alert" size={18} /></span>
+                  <span><strong>Event activity</strong><small>{events.length} recent events</small></span>
+                  {events.length > 0 && <b className="menu-event-count">{events.length}</b>}
+                </button>
+                <button className="menu-option" type="button" onClick={() => openPanel("performance")}>
+                  <span className="menu-option-icon menu-option-performance"><Icon name="trend" size={18} /></span>
+                  <span><strong>System performance</strong><small>Live processing graphs</small></span>
+                </button>
+                <button className="menu-option" type="button" onClick={() => openPanel("device")}>
+                  <span className="menu-option-icon menu-option-device"><Icon name="camera" size={18} /></span>
+                  <span><strong>Device setup</strong><small>Camera and ESP32 settings</small></span>
+                </button>
+              </nav>}
+            </div>
           </div>
         </div>
 
-        <section className="overview-grid" aria-label="Live camera and AI monitoring dashboard">
+        <section className="overview-grid" aria-label="Live camera monitoring dashboard">
           <div className="camera-column">
             <CameraFeed
               videoRef={camera.videoRef}
@@ -447,39 +549,24 @@ export default function Cam() {
                 setEditingZone(false);
               }}
             />
-            <StatsGrid stats={[
-              { label: "Pedestrians detected", value: result?.count ?? "—", note: result ? "Currently in camera view" : "Awaiting AI inference", icon: "scan", tone: "tone-blue" },
-              { label: "Alerts triggered", value: events.length, note: "Recent detection events", icon: "alert", tone: "tone-amber" },
-              { label: "Detection confidence", value: result?.average_confidence != null ? `${result.average_confidence}%` : "—", note: "Current frame average", icon: "pulse", tone: "tone-green" },
-            ]} />
           </div>
-
-          <aside className="insights-column" aria-label="AI recognition status">
-            <AIRecognitionPanel
-              modelName={result?.model || "YOLO11m"}
-              modelDescription={result?.device ? `Python person detection model · ${result.device} inference` : "Python person detection model · automatic device selection"}
-              status={serviceState === "live" ? "LIVE" : serviceState === "error" ? "OFFLINE" : "CONNECTING"}
-              statusMessage={serviceState === "live" ? "Detection feed active" : serviceState === "error" ? "Detection service unavailable" : "Connecting to Python service"}
-              statusDetail={serviceMessage}
-              detectionZone={result?.count ? "Person detected" : result ? "Clear" : "Waiting for feed"}
-              schoolSchedule={alertSchedule}
-              onSchoolScheduleChange={(time) => { setAlertSchedule(time); setScheduleAlertStatus(""); }}
-              scheduleAlertStatus={scheduleAlertStatus}
-              manualMode={manualMode}
-              onManualModeChange={setManualMode}
-              onManualAlertStart={() => { standbyWantedRef.current = false; stopStandbySound(); void playAlertSound(true); }}
-              onManualAlertStop={stopAlertSound}
-              manualAlertActive={manualAlertActive}
-              inferenceRate={result?.inference_fps ?? "—"}
-              inferenceMs={result?.inference_ms}
-              requestMs={result?.request_ms}
-              roundTripMs={result?.round_trip_ms}
-              zoneIntersections={result?.count ?? "—"}
-            />
-            <RecentDetectionsPanel events={events} unavailable={serviceState !== "live"} />
-            <HardwareAlertNote />
-          </aside>
+          {wideScreen && <aside className="performance-sidebar" aria-label="Live system performance">{performanceDashboard}</aside>}
         </section>
+
+        {activePanel && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setActivePanel(null); }}>
+          <section className="dashboard-modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-modal-title">
+            <div className="modal-heading">
+              <div><div className="section-kicker">DASHBOARD DETAILS</div><h2 id="dashboard-modal-title">{activePanel === "status" ? "System status" : activePanel === "events" ? "Event activity" : activePanel === "performance" ? "System performance" : "Device setup"}</h2></div>
+              <button className="modal-close" type="button" aria-label="Close dialog" onClick={() => setActivePanel(null)}>×</button>
+            </div>
+            <div className="modal-content">
+            {activePanel === "status" && systemStatusPanel}
+            {activePanel === "events" && recentEventsPanel}
+            {activePanel === "performance" && performanceDashboard}
+            {activePanel === "device" && deviceSetupPanels}
+            </div>
+          </section>
+        </div>}
       </div>
       <canvas ref={canvasRef} hidden />
     </main>
