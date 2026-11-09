@@ -38,7 +38,60 @@ Open the Vite URL (normally `http://localhost:5173`) and allow camera access. Vi
 - `TELEMETRY_KEY_PATH`: location for the auto-generated Fernet key (default `backend/telemetry.key`). The backend creates it on first encrypted export and reuses it. Keep this file private and backed up, since it is needed to decrypt exports.
 - `TELEMETRY_ENCRYPTION_KEY`: optional Fernet key override for deployments that manage secrets outside the project directory.
 
+
+
 The Recent detections panel offers a CSV download for the full event history and an encrypted telemetry CSV download (`.csv.enc`). The telemetry export is encrypted with the configured Fernet key and must be decrypted before analysis.
+
+## Deploy the dashboard online with on-site YOLO inference
+
+This setup hosts the React dashboard as a static website (for example, a Render Static Site) while FastAPI, the YOLO model, and SQLite run on a computer at the site. The ESP32-S3 also connects to that on-site computer. This keeps inference and stored event data on-site, but the browser camera frames travel from the operator's browser to the on-site API.
+
+### Network layout
+
+```text
+Operator browser -- HTTPS dashboard -- online static host
+       |
+       +-- HTTPS API connection (secure tunnel/VPN) --> On-site computer
+                                                        FastAPI + YOLO + SQLite
+ESP32-S3 ---------------- school LAN ----------------> FastAPI
+```
+
+The API must be securely reachable by every browser that uses the dashboard. A private address such as `http://192.168.1.50:8000` or `localhost:8000` is not reachable from the public website for remote users. Use a school-approved VPN or an authenticated HTTPS tunnel/API gateway that forwards traffic to the on-site service. Do not expose port `8000` directly to the public internet. The ESP32-S3 can use the computer's reserved private LAN address because it is on the same network.
+
+### 1. Prepare the on-site computer
+
+Install Python and follow the backend setup in [Run locally](#run-locally). Keep the computer powered on and connected to the network. Reserve its LAN IP address in the router so the ESP32-S3 endpoint remains stable. Configure the selected VPN or HTTPS gateway to forward requests to FastAPI on `127.0.0.1:8000`; use authentication and HTTPS for browser access.
+
+From PowerShell, start the API with hardware alerts enabled and the dashboard's online origin permitted. Replace the example origin with the exact HTTPS URL of the deployed dashboard (no trailing slash):
+
+```powershell
+cd backend
+$env:HARDWARE_ALERT_ENABLED = "1"
+$env:FRONTEND_ORIGINS = "https://your-dashboard.example"
+.\.venv\Scripts\uvicorn.exe main:app --host 127.0.0.1 --port 8000
+```
+
+The first model inference may download the model specified by `YOLO_MODEL` (default `yolo11m.pt`), so ensure the on-site computer has internet access for initial setup or place the model file there in advance. Keep `DATABASE_PATH` and the telemetry encryption key in persistent on-site storage and back them up securely.
+
+Check service readiness from the on-site computer at `http://127.0.0.1:8000/api/health`. The `/api/summary` endpoint reports model and device status after startup. Keep the backend terminal or service running while the dashboard is in use.
+
+### 2. Configure and deploy the frontend
+
+In Render, create a **Static Site** from this repository and set:
+
+- **Root Directory:** `frontend`
+- **Build Command:** `npm install && npm run build`
+- **Publish Directory:** `dist`
+
+The deployed dashboard sends its `/api` requests to `VITE_API_BASE_URL`. In Render, open the Static Site's **Environment** settings and add `VITE_API_BASE_URL` with the HTTPS origin of the secure tunnel or VPN gateway, for example `https://api-your-site.example` (no trailing slash). Save and redeploy so Vite embeds the value in the static build. Do not enter `localhost`, a private LAN address, or the Render dashboard URL here. For local development, leave the variable unset; Vite then uses its existing `/api` proxy to `localhost:8000`.
+
+Verify that the API gateway forwards `/api/*` to the on-site FastAPI server, that FastAPI's `FRONTEND_ORIGINS` exactly matches the dashboard origin, and that the camera permission prompt works on the HTTPS dashboard. Test from a device outside the school LAN if remote access is required. A public tunnel makes the API internet-reachable; protect it with an authenticated gateway or VPN and confirm the browser can authenticate API requests before using real camera footage. The current API does not implement its own user login or access token, so do not publish an unauthenticated tunnel.
+
+### 3. Configure the ESP32-S3
+
+For the physical ESP32-S3, configure the Wi-Fi SSID/password for the school network and set `BACKEND_API_URL` in `wokwi/src/main.cpp` to the on-site computer's reserved LAN address, for example `http://192.168.1.50:8000`. Do not use `host.wokwi.internal` or `Wokwi-GUEST`; those are for Wokwi simulation. Build and flash with `USE_BACKEND_API=1`, then confirm the board can reach `GET /api/hardware-alert` and post its completion to `/api/hardware-alert/finished`.
+
+Keep the API gateway and ESP32 settings aligned with the same FastAPI instance. If the computer is unavailable, the online dashboard may load but live detection and hardware alerts will not work.
 
 ## Research instrument data
 

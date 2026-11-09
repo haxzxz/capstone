@@ -1,4 +1,5 @@
 import Icon from "./Icon.jsx";
+import { apiUrl } from "../api.js";
 
 /** Show the latest event rows and link to the complete backend CSV exports. */
 export default function RecentDetectionsPanel({ events = [], unavailable = true }) {
@@ -17,10 +18,10 @@ export default function RecentDetectionsPanel({ events = [], unavailable = true 
       ) : (
         <ul className="event-list">{events.map((event) => <li className="event-row" key={event.id}><span className="event-dot"/><div><strong>{event.label}</strong><small>{event.time} · {event.zoneResult}</small></div><b>{event.confidence}%</b></li>)}</ul>
       )}
-      <a className="log-button export-button" href="/api/events/export" aria-label="Export all detection events as a CSV file">
+      <a className="log-button export-button" href={apiUrl("/api/events/export")} aria-label="Export all detection events as a CSV file">
         <Icon name="download" size={15} />Export event log CSV
       </a>
-      <a className="log-button export-button" href="/api/telemetry/export" aria-label="Export encrypted automated telemetry CSV file">
+      <a className="log-button export-button" href={apiUrl("/api/telemetry/export")} aria-label="Export encrypted automated telemetry CSV file">
         <Icon name="download" size={15} />Export encrypted telemetry CSV
       </a>
     </section>

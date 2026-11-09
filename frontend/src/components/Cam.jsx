@@ -8,6 +8,7 @@ import Header from "./Header.jsx";
 import Icon from "./Icon.jsx";
 import RecentDetectionsPanel from "./RecentDetectionsPanel.jsx";
 import StatsGrid from "./StatsGrid.jsx";
+import { apiUrl } from "../api.js";
 
 const DETECTION_ZONE_STORAGE_KEY = "school-zone-detection-area";
 const ALERT_SOUND_STORAGE_KEY = "school-zone-alert-sound-enabled";
@@ -90,7 +91,7 @@ export default function Cam() {
   const startStandbySound = (delaySeconds) => {
     if (!soundEnabled || alertPlayingRef.current) return;
     if (standbyTimerRef.current !== null || standbyPlayingRef.current) return;
-    const audio = standbyAudioRef.current || new Audio("/api/audio/beep1.mp3");
+    const audio = standbyAudioRef.current || new Audio(apiUrl("/api/audio/beep1.mp3"));
     standbyAudioRef.current = audio;
     const generation = ++standbyGenerationRef.current;
     const scheduleNext = () => {
@@ -118,11 +119,11 @@ export default function Cam() {
   const playAlertSound = async (repeatUntilStopped = false) => {
     if (alertPlayingRef.current) return false;
     if (!soundEnabled) {
-      await fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
+      await fetch(apiUrl("/api/alert-finished"), { method: "POST" }).catch(() => {});
       return false;
     }
     stopStandbySound();
-    const audio = alertAudioRef.current || new Audio("/api/audio/beep3.mp3");
+    const audio = alertAudioRef.current || new Audio(apiUrl("/api/audio/beep3.mp3"));
     alertAudioRef.current = audio;
     const generation = ++alertPlaybackGenerationRef.current;
     audio.currentTime = 0;
@@ -143,7 +144,7 @@ export default function Cam() {
     } finally {
       // Only the current playback may unlock the backend or restart standby audio.
       if (generation === alertPlaybackGenerationRef.current) {
-        await fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
+        await fetch(apiUrl("/api/alert-finished"), { method: "POST" }).catch(() => {});
         alertPlayingRef.current = false;
         setManualAlertActive(false);
         if (standbyWantedRef.current && soundEnabled) startStandbySound(standbyDelayRef.current);
@@ -161,7 +162,7 @@ export default function Cam() {
       alertAudioRef.current.pause();
       alertAudioRef.current.currentTime = 0;
     }
-    if (wasPlaying) fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
+    if (wasPlaying) fetch(apiUrl("/api/alert-finished"), { method: "POST" }).catch(() => {});
   };
 
   useEffect(() => {
@@ -296,7 +297,7 @@ export default function Cam() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/summary")
+    fetch(apiUrl("/api/summary"))
       .then((response) => {
         if (!response.ok) throw new Error("Detection service is unavailable");
         return response.json();
@@ -327,7 +328,7 @@ export default function Cam() {
         const frame = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.78));
         if (!frame) return;
         const requestStartedAt = performance.now();
-        const response = await fetch("/api/detect", {
+        const response = await fetch(apiUrl("/api/detect"), {
           method: "POST",
           headers: {
             "Content-Type": "image/jpeg",
@@ -351,7 +352,7 @@ export default function Cam() {
         standbyWantedRef.current = !manualMode && (data.alert_pending || data.count === 0);
         if (manualMode) {
           stopStandbySound();
-          if (data.alert_trigger) fetch("/api/alert-finished", { method: "POST" }).catch(() => {});
+          if (data.alert_trigger) fetch(apiUrl("/api/alert-finished"), { method: "POST" }).catch(() => {});
         } else if (data.alert_trigger) {
           void playAlertSound();
         } else if (standbyWantedRef.current) {
