@@ -40,8 +40,8 @@ String apiUrl(const char *path) {
 }
 
 void loadConfig() {
-  config.wifiSsid = preferences.getString("ssid", "");
-  config.wifiPassword = preferences.getString("password", "");
+  config.wifiSsid = preferences.getString("HUAWEI-2.4G-8g70", "");
+  config.wifiPassword = preferences.getString("9fa197h0", "");
   config.backendUrl = preferences.getString("api", "");
   config.alertLedPin = preferences.getUChar("alertPin", 17);
   config.readyLedPin = preferences.getUChar("readyPin", 18);

@@ -77,6 +77,37 @@ export default function Cam() {
   const [wideScreen, setWideScreen] = useState(() => window.matchMedia("(min-width: 1200px)").matches);
   const [activePanel, setActivePanel] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(() => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true);
+  const [installHelp, setInstallHelp] = useState(false);
+
+  useEffect(() => {
+    const captureInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    const markInstalled = () => {
+      setIsInstalled(true);
+      setInstallPrompt(null);
+    };
+    window.addEventListener("beforeinstallprompt", captureInstallPrompt);
+    window.addEventListener("appinstalled", markInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
+      window.removeEventListener("appinstalled", markInstalled);
+    };
+  }, []);
+
+  const installWebsite = async () => {
+    if (!installPrompt) {
+      setInstallHelp((visible) => !visible);
+      return;
+    }
+    await installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice.outcome === "accepted") setIsInstalled(true);
+    setInstallPrompt(null);
+  };
 
   useEffect(() => {
     const screenQuery = window.matchMedia("(min-width: 1200px)");
@@ -509,6 +540,14 @@ export default function Cam() {
             <p>Real-time pedestrian safety monitoring and AI event overview.</p>
           </div>
           <div className="intro-status">
+            {!isInstalled && <div className="install-action-wrap">
+              <button type="button" className="install-app-button" onClick={installWebsite} aria-expanded={installHelp}>
+                Install app
+              </button>
+              {installHelp && <div className="install-app-help" role="status">
+                Use your browser menu and choose <strong>Install app</strong> or <strong>Add to Home Screen</strong>.
+              </div>}
+            </div>}
             <button
               type="button"
               className="theme-toggle"

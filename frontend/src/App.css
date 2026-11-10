@@ -14,6 +14,12 @@
 .clock-card span { color: #27374c; font-variant-numeric: tabular-nums; font-weight: 650; }
 .clock-card i { width: 1px; height: 14px; margin: 0 3px; background: #e3e9ef; }
 .intro-status { display: flex; align-items: center; gap: 9px; }
+.install-action-wrap { position: relative; }
+.install-app-button { min-height: 38px; padding: 8px 12px; border: 1px solid #cfe8df; border-radius: 9px; background: #f6fbf9; color: #168b68; font: inherit; font-size: 11px; font-weight: 650; cursor: pointer; }
+.install-app-button:hover { border-color: #9bd8c3; background: #effaf5; }
+.install-app-button:focus-visible { outline: 2px solid #20b889; outline-offset: 2px; }
+.install-app-help { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; width: 240px; padding: 11px 12px; border: 1px solid #dfe7eb; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px rgba(25,45,72,.12); color: #647387; font-size: 11px; line-height: 1.5; }
+.install-app-help strong { color: #26374b; }
 .sound-toggle { display: inline-flex; align-items: center; gap: 7px; padding: 8px 10px; border: 1px solid #e6ebf0; border-radius: 9px; background: #fff; color: #8491a2; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; transition: border-color .15s ease, background .15s ease, color .15s ease; }
 .sound-toggle:hover { border-color: #d5e7df; background: #fbfdfc; color: #526477; }
 .sound-toggle.is-enabled { color: #52816f; }
@@ -104,6 +110,8 @@
 
 .monitor-app.theme-dark { color-scheme: dark; background: #111821; color: #e5edf5; }
 .theme-dark .custom-header { background: #151e29; border-color: #263342; }
+.theme-dark .install-app-button,.theme-dark .install-app-help { background: #18232f; border-color: #334252; color: #a8dcca; }
+.theme-dark .install-app-help strong { color: #e0e8f0; }
 .theme-dark .page-intro h1,.theme-dark .camera-name strong,.theme-dark .stat-copy strong,.theme-dark .panel-heading h2 { color: #e8eef5; }
 .theme-dark .page-intro p,.theme-dark .camera-name small,.theme-dark .feed-meta,.theme-dark .stat-label,.theme-dark .section-kicker { color: #8e9daf; }
 .theme-dark .clock-card,.theme-dark .sound-toggle,.theme-dark .theme-toggle,.theme-dark .camera-card,.theme-dark .panel,.theme-dark .stat-card { background: #18232f; border-color: #2a3948; color: #aab7c6; }
@@ -298,6 +306,7 @@ html,body,#root { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
   .intro-status .clock-card { display: none; }
   .sound-toggle,.theme-toggle { padding: 7px; }
   .sound-toggle span,.theme-toggle span { display: none; }
+  .install-app-button { min-height: 34px; padding: 7px 9px; }
   .camera-column { width: min(100%, calc((100dvh - 285px) * 1.7778)); }
   .camera-controls { min-height: 0; }
 }
