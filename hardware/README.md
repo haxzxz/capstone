@@ -30,7 +30,11 @@ The firmware flashes the alert light and sounds the piezo for five seconds when 
 
 3. Run the React dashboard at `http://localhost:5173` in Chrome or Edge. Connect the ESP32 by USB-C and close PlatformIO's Serial Monitor so the browser can open its COM port.
 4. In the dashboard's **ESP32 settings** panel, choose **Connect ESP32 by USB**, select the ESP32 serial port, enter the Wi-Fi network and password, set the computer's stable LAN address as the backend URL (for example `http://192.168.1.50:8000`), and confirm the GPIO assignments. Click **Save settings to ESP32**. The settings are stored on the board and survive power loss; the Wi-Fi password is not read back into the page.
-5. After the board reconnects to Wi-Fi, start the camera. When an alert triggers, the alert light and piezo run for the configured duration.
+5. After the board reconnects to Wi-Fi and the serial log says `Backend API connected.`, start the camera. Detection alerts and the dashboard's manual **Trigger alert** control activate the alert light and piezo for the configured duration.
+
+If the ESP32 reports `Backend poll failed: connection refused`, check that the saved backend address uses the on-site computer's current LAN address and port 8000 (for example, `http://192.168.100.13:8000`), that FastAPI is running with `--host 0.0.0.0 --port 8000`, and that the computer firewall allows port 8000 on the private network. Check `/api/health` for `hardware_alert_enabled: true`; the backend defaults this setting to false unless `HARDWARE_ALERT_ENABLED=1` is set before startup.
+
+After uploading firmware, PlatformIO releases the USB serial port when upload finishes. Close Serial Monitor, unplug and reconnect the board if needed, then select its current COM port in the dashboard. The browser and PlatformIO cannot use the same COM port at the same time.
 
 Allow port 8000 through the computer's firewall for the private network. Keep the backend on a trusted local network; do not expose port 8000 directly to the public internet.
 

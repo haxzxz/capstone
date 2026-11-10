@@ -9,6 +9,7 @@ Set up and start the backend in one terminal. The setup script detects the NVIDI
 ```powershell
 cd backend
 .\setup_backend.ps1
+$env:HARDWARE_ALERT_ENABLED = "1"
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -31,6 +32,7 @@ Open the Vite URL (normally `http://localhost:5173`) and allow camera access. Vi
 - `ALERT_ONE_PERSON_DWELL_SECONDS`: how long one detected pedestrian must remain before the alert triggers (default `12`).
 - `ALERT_TWO_PERSON_DWELL_SECONDS`: wait time for two detected pedestrians (default `8`).
 - `ALERT_THREE_OR_MORE_DWELL_SECONDS`: wait time for three or more detected pedestrians (default `5`). If the group size changes during a countdown, elapsed time is preserved and the current count's wait time applies.
+- `HARDWARE_ALERT_ENABLED`: set to `1` when the ESP32 should receive automatic and manual dashboard alerts (default `false`). The backend's `/api/health` response reports whether hardware alerts are enabled.
 - The alert sound `backend/source/beep3.mp3` plays once when the countdown completes. No new countdown starts until the browser finishes playing the alert sound.
 - `backend/source/beep1.mp3` repeats during standby and while an alert countdown is pending, with a fixed one-second delay after each beep finishes. Standby beeps resume after `beep3` finishes.
 - `FRONTEND_ORIGINS`: comma-separated browser origins permitted by the API (default includes localhost:5173).

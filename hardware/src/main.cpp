@@ -28,6 +28,8 @@ bool backendAlert = false;
 bool outputOn = false;
 bool wasConnected = false;
 bool backendReachable = false;
+bool wifiAttemptInProgress = false;
+int lastBackendFailureStatus = 0;
 uint32_t alertStartedAt = 0;
 uint32_t lastOutputStepAt = 0;
 uint32_t lastBackendPollAt = 0;
@@ -106,6 +108,18 @@ void connectWiFi() {
   Serial.printf("Connecting to Wi-Fi: %s\n", config.wifiSsid.c_str());
   WiFi.begin(config.wifiSsid.c_str(), config.wifiPassword.c_str());
   lastWiFiAttemptAt = millis();
+  wifiAttemptInProgress = true;
+}
+
+void logWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
+  if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+    Serial.printf("Wi-Fi disconnected; reason code: %u\n",
+                  static_cast<unsigned>(info.wifi_sta_disconnected.reason));
+    return;
+  }
+  if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
+    Serial.printf("Wi-Fi connected; ESP32 IP: %s\n", WiFi.localIP().toString().c_str());
+  }
 }
 
 void printConfig() {
@@ -244,25 +258,33 @@ void pollBackend() {
   if (status == HTTP_CODE_OK) {
     if (!backendReachable) Serial.println("Backend API connected.");
     backendReachable = true;
+    lastBackendFailureStatus = 0;
     const String body = http.getString();
     const bool activeOnServer = body.indexOf("\"active\":true") >= 0;
     if (activeOnServer && !alertActive) beginAlert();
     if (!activeOnServer && alertActive && backendAlert) stopAlert();
   } else if (status < 0) {
     backendReachable = false;
-    Serial.printf("Backend poll failed: %s\n", http.errorToString(status).c_str());
+    if (lastBackendFailureStatus != status) {
+      Serial.printf("Backend poll failed for %s: %s\n", config.backendUrl.c_str(), http.errorToString(status).c_str());
+      lastBackendFailureStatus = status;
+    }
   } else {
     backendReachable = false;
-    Serial.printf("Backend poll returned HTTP %d\n", status);
+    if (lastBackendFailureStatus != status) {
+      Serial.printf("Backend poll for %s returned HTTP %d\n", config.backendUrl.c_str(), status);
+      lastBackendFailureStatus = status;
+    }
   }
   http.end();
 }
 
 void maintainWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
+    wifiAttemptInProgress = false;
     if (!wasConnected) {
       wasConnected = true;
-      Serial.printf("Wi-Fi connected; ESP32 IP: %s\n", WiFi.localIP().toString().c_str());
+      backendReachable = false;
     }
     return;
   }
@@ -272,10 +294,22 @@ void maintainWiFi() {
     Serial.println("Wi-Fi disconnected; reconnecting...");
   }
   const uint32_t now = millis();
+  // ESP32 can remain in its connecting state beyond the retry interval. Calling
+  // WiFi.begin() again in that state causes "sta is connecting, cannot set config".
+  if (wifiAttemptInProgress) {
+    constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 30000;
+    if (now - lastWiFiAttemptAt < WIFI_CONNECT_TIMEOUT_MS) return;
+    Serial.println("Wi-Fi connection timed out; resetting the station before retrying.");
+    WiFi.disconnect(false, false);
+    wifiAttemptInProgress = false;
+    lastWiFiAttemptAt = now;
+    return;
+  }
   if (config.wifiSsid.length() == 0 || now - lastWiFiAttemptAt < config.wifiRetryMs) return;
   lastWiFiAttemptAt = now;
   Serial.println("Retrying Wi-Fi connection...");
   WiFi.begin(config.wifiSsid.c_str(), config.wifiPassword.c_str());
+  wifiAttemptInProgress = true;
 }
 
 void updateOutputs() {
@@ -308,6 +342,7 @@ void setup() {
   preferences.begin("schoolzone", false);
   loadConfig();
   configureOutputs(config);
+  WiFi.onEvent(logWiFiEvent);
   WiFi.mode(WIFI_STA);
   Serial.println("Ready for dashboard configuration over USB.");
   connectWiFi();

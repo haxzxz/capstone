@@ -94,6 +94,24 @@ def hardware_alert_status():
     return {"active": hardware_alert_active, "enabled": HARDWARE_ALERT_ENABLED}
 
 
+@app.post("/api/hardware-alert/manual")
+def start_manual_hardware_alert():
+    """Latch a manual dashboard alert for the ESP32 to pick up on its next poll."""
+    global hardware_alert_active
+    if not HARDWARE_ALERT_ENABLED:
+        raise HTTPException(status_code=503, detail="Hardware alerts are disabled on the backend.")
+    hardware_alert_active = True
+    return {"status": "active"}
+
+
+@app.post("/api/hardware-alert/cancel")
+def cancel_manual_hardware_alert():
+    """Clear a manual hardware alert when the operator stops it from the dashboard."""
+    global hardware_alert_active
+    hardware_alert_active = False
+    return {"status": "ready"}
+
+
 @app.post("/api/hardware-alert/finished")
 def hardware_alert_finished():
     """Acknowledge that the external light/sound sequence completed."""
@@ -322,6 +340,8 @@ def health():
         "model_loaded": model is not None,
         "device": api_device_name(active_device) if model is not None else None,
         "gpu": gpu,
+        "hardware_alert_enabled": HARDWARE_ALERT_ENABLED,
+        "hardware_alert_active": hardware_alert_active,
     }
 
 
@@ -333,6 +353,8 @@ def summary():
         "model": MODEL_PATH,
         "device": api_device_name(active_device),
         "gpu": gpu_status(),
+        "hardware_alert_enabled": HARDWARE_ALERT_ENABLED,
+        "hardware_alert_active": hardware_alert_active,
         "uptime_seconds": round(time.monotonic() - started_at),
         "people_seen": get_people_seen(),
         "events": get_recent_events(),

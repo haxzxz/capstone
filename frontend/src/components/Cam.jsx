@@ -42,6 +42,8 @@ export default function Cam() {
   const alertAudioRef = useRef(null);
   const alertPlayingRef = useRef(false);
   const alertPlaybackGenerationRef = useRef(0);
+  const manualHardwareAlertRef = useRef(false);
+  const manualAlertRequestRef = useRef(0);
   const previousManualModeRef = useRef(false);
   const standbyDelayRef = useRef(1);
   const lastPerformanceSampleRef = useRef(0);
@@ -63,6 +65,7 @@ export default function Cam() {
     catch { return false; }
   });
   const [manualAlertActive, setManualAlertActive] = useState(false);
+  const [manualAlertStatus, setManualAlertStatus] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try { return window.localStorage.getItem(ALERT_SOUND_STORAGE_KEY) !== "false"; }
     catch { return true; }
@@ -185,7 +188,7 @@ export default function Cam() {
       if (generation === alertPlaybackGenerationRef.current) {
         await fetch(apiUrl("/api/alert-finished"), { method: "POST" }).catch(() => {});
         alertPlayingRef.current = false;
-        setManualAlertActive(false);
+        setManualAlertActive(manualHardwareAlertRef.current);
         if (standbyWantedRef.current && soundEnabled) startStandbySound(standbyDelayRef.current);
       }
     }
@@ -194,6 +197,9 @@ export default function Cam() {
 
   const stopAlertSound = () => {
     const wasPlaying = alertPlayingRef.current;
+    const cancelHardware = manualHardwareAlertRef.current;
+    manualAlertRequestRef.current += 1;
+    manualHardwareAlertRef.current = false;
     alertPlaybackGenerationRef.current += 1;
     alertPlayingRef.current = false;
     setManualAlertActive(false);
@@ -202,6 +208,42 @@ export default function Cam() {
       alertAudioRef.current.currentTime = 0;
     }
     if (wasPlaying) fetch(apiUrl("/api/alert-finished"), { method: "POST" }).catch(() => {});
+    if (cancelHardware) {
+      fetch(apiUrl("/api/hardware-alert/cancel"), { method: "POST" }).catch(() => {});
+      setManualAlertStatus("Manual hardware alert stopped.");
+    }
+  };
+
+  const startManualAlert = () => {
+    standbyWantedRef.current = false;
+    stopStandbySound();
+    const requestId = ++manualAlertRequestRef.current;
+    manualHardwareAlertRef.current = true;
+    setManualAlertActive(true);
+    setManualAlertStatus("Sending manual alert to the hardware…");
+    // Start browser playback directly from the click so browser audio permission is preserved.
+    void playAlertSound(true);
+    fetch(apiUrl("/api/hardware-alert/manual"), { method: "POST" })
+      .then(async (response) => {
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.detail || `Hardware alert request failed (${response.status}).`);
+        }
+        if (requestId !== manualAlertRequestRef.current) {
+          fetch(apiUrl("/api/hardware-alert/cancel"), { method: "POST" }).catch(() => {});
+          return;
+        }
+        manualHardwareAlertRef.current = true;
+        setManualAlertActive(true);
+        setManualAlertStatus("Manual alert queued for the ESP32.");
+      })
+      .catch((error) => {
+        if (requestId === manualAlertRequestRef.current) {
+          manualHardwareAlertRef.current = false;
+          setManualAlertActive(alertPlayingRef.current);
+          setManualAlertStatus(error.message || "Could not reach the hardware alert service.");
+        }
+      });
   };
 
   useEffect(() => {
@@ -439,9 +481,10 @@ export default function Cam() {
     scheduleAlertStatus={scheduleAlertStatus}
     manualMode={manualMode}
     onManualModeChange={setManualMode}
-    onManualAlertStart={() => { standbyWantedRef.current = false; stopStandbySound(); void playAlertSound(true); }}
+    onManualAlertStart={startManualAlert}
     onManualAlertStop={stopAlertSound}
     manualAlertActive={manualAlertActive}
+    manualAlertStatus={manualAlertStatus}
     inferenceRate={result?.inference_fps ?? "—"}
     inferenceMs={result?.inference_ms}
     requestMs={result?.request_ms}

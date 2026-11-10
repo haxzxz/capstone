@@ -216,6 +216,7 @@
 .ai-panel .manual-alert-controls button:disabled { opacity: .48; cursor: not-allowed; }
 .ai-panel .schedule-configure-button:focus-visible,.ai-panel .schedule-save-button:focus-visible,.ai-panel .schedule-clear-button:focus-visible,.ai-panel .alert-mode-toggle:focus-visible,.ai-panel .manual-alert-controls button:focus-visible,.ai-panel .schedule-form input:focus-visible { outline: 3px solid #20b889; outline-offset: 2px; }
 .ai-panel .schedule-alert-status { margin: 12px 0 0; padding: 10px; border-radius: 8px; background: #f1f8f4; color: #28664f; font-size: 13px; line-height: 1.45; }
+.ai-panel .manual-alert-status { margin: 10px 0 0; color: #526476; font-size: 12px; line-height: 1.45; }
 .stat-label { font-size: 13px; }
 .stat-copy small { color: #68798b; font-size: 12px; }
 .camera-name small,.feed-meta,.feed-actions select,.camera-action { font-size: 12px; }
@@ -229,6 +230,7 @@
 .theme-dark .ai-panel .schedule-form { border-color: #2e493e; background: #101d18; }
 .theme-dark .ai-panel .alert-mode-row { border-color: #2a3948; }
 .theme-dark .ai-panel .schedule-alert-status { background: #10241b; color: #a9e3c7; }
+.theme-dark .ai-panel .manual-alert-status { color: #b9c6d4; }
 .theme-dark .ai-panel .schedule-form label,.theme-dark .ai-panel .alert-mode-row strong { color: #e2eaf2; }
 .theme-dark .ai-panel .schedule-form small,.theme-dark .ai-panel .alert-mode-row small { color: #b0bdca; }
 .theme-dark .ai-panel .schedule-clear-button { color: #ffaaaa; }

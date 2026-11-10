@@ -65,7 +65,8 @@ export default function HardwareSettings() {
     lineWaitersRef.current.push(waiter);
   });
 
-  const startReading = async (reader) => {
+  const startReading = async (reader, writer, port) => {
+    let disconnectMessage = "USB disconnected. Reconnect the ESP32 to continue.";
     try {
       while (true) {
         const { value, done } = await reader.read();
@@ -76,7 +77,23 @@ export default function HardwareSettings() {
         lines.forEach((line) => deliverLine(line.trim()));
       }
     } catch (error) {
-      if (portRef.current) setMessage(error.message || "USB connection was interrupted.");
+      disconnectMessage = error.message || "USB connection was interrupted.";
+    } finally {
+      if (portRef.current === port) {
+        portRef.current = null;
+        readerRef.current = null;
+        writerRef.current = null;
+        setConnected(false);
+        setMessage(disconnectMessage);
+      }
+      for (const waiter of lineWaitersRef.current) {
+        window.clearTimeout(waiter.timeoutId);
+        waiter.reject(new Error(disconnectMessage));
+      }
+      lineWaitersRef.current = [];
+      try { reader.releaseLock(); } catch { /* The browser may already have released the reader. */ }
+      try { writer.releaseLock(); } catch { /* The browser may already have released the writer. */ }
+      try { await port.close(); } catch { /* A disconnected USB device may already be closed. */ }
     }
   };
 
@@ -94,15 +111,27 @@ export default function HardwareSettings() {
 
   const loadDeviceConfig = async () => {
     const received = {};
-    await writeLine("GET_CONFIG");
-    while (true) {
-      const line = await waitForLine((item) => item.startsWith("CFG|") || item === "END_CONFIG");
-      if (line === "END_CONFIG") break;
-      const firstSeparator = line.indexOf("|", 4);
-      const key = line.slice(4, firstSeparator);
-      const value = line.slice(firstSeparator + 1);
-      received[key] = value;
+    const isConfigLine = (item) => item.startsWith("CFG|") || item === "END_CONFIG";
+    let configLoaded = false;
+    for (let attempt = 1; attempt <= 4 && !configLoaded; attempt += 1) {
+      await writeLine("GET_CONFIG");
+      try {
+        while (true) {
+          const line = await waitForLine(isConfigLine, 2500);
+          if (line === "END_CONFIG") {
+            configLoaded = true;
+            break;
+          }
+          const firstSeparator = line.indexOf("|", 4);
+          const key = line.slice(4, firstSeparator);
+          const value = line.slice(firstSeparator + 1);
+          received[key] = value;
+        }
+      } catch (error) {
+        if (attempt === 4) throw error;
+      }
     }
+    if (!configLoaded) throw new Error("The ESP32 did not finish sending its settings. Reconnect and try again.");
     setConfig((current) => ({
       ...current,
       wifiSsid: received.wifi_ssid ?? "",
@@ -136,11 +165,12 @@ export default function HardwareSettings() {
       writerRef.current = writer;
       lineBufferRef.current = "";
       lineQueueRef.current = [];
-      setConnected(true);
-      void startReading(reader);
+      decoderRef.current = new TextDecoder();
+      void startReading(reader, writer, port);
       setMessage("Reading the saved ESP32 settings…");
-      await new Promise((resolve) => window.setTimeout(resolve, 1200));
       await loadDeviceConfig();
+      if (portRef.current !== port) throw new Error("USB disconnected before settings could be read. Reconnect the ESP32 and try again.");
+      setConnected(true);
       setMessage("Connected. Edit settings and save them to the ESP32.");
     } catch (error) {
       try {
@@ -154,7 +184,10 @@ export default function HardwareSettings() {
       readerRef.current = null;
       writerRef.current = null;
       portRef.current = null;
-      setMessage(error.message || "Could not connect to the ESP32.");
+      const isBusyPort = error.name === "NetworkError" || error.name === "InvalidStateError";
+      setMessage(isBusyPort
+        ? "The USB port is busy or no longer available. Close PlatformIO's Serial Monitor, unplug and reconnect the ESP32, then try again."
+        : error.message || "Could not connect to the ESP32.");
       setConnected(false);
     } finally {
       setBusy(false);
@@ -198,27 +231,36 @@ export default function HardwareSettings() {
 
   const disconnectDevice = async () => {
     setBusy(true);
-    try {
-      await readerRef.current?.cancel();
-      readerRef.current?.releaseLock();
-      writerRef.current?.releaseLock();
-      await portRef.current?.close();
-    } catch {
-      // The device may already have been unplugged.
-    }
+    const port = portRef.current;
+    const reader = readerRef.current;
+    const writer = writerRef.current;
     portRef.current = null;
     readerRef.current = null;
     writerRef.current = null;
+    try {
+      await reader?.cancel();
+      reader?.releaseLock();
+      writer?.releaseLock();
+      await port?.close();
+    } catch {
+      // The device may already have been unplugged.
+    }
     setConnected(false);
     setBusy(false);
     setMessage("USB disconnected. Settings already saved on the ESP32 remain there.");
   };
 
   useEffect(() => () => {
-    readerRef.current?.cancel().catch(() => {});
-    writerRef.current?.releaseLock();
-    readerRef.current?.releaseLock();
-    portRef.current?.close().catch(() => {});
+    const reader = readerRef.current;
+    const writer = writerRef.current;
+    const port = portRef.current;
+    readerRef.current = null;
+    writerRef.current = null;
+    portRef.current = null;
+    reader?.cancel().catch(() => {});
+    writer?.releaseLock();
+    reader?.releaseLock();
+    port?.close().catch(() => {});
   }, []);
 
   const update = (key) => (event) => {

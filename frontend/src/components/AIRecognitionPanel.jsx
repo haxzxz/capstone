@@ -17,6 +17,7 @@ export default function AIRecognitionPanel({
   onManualAlertStart,
   onManualAlertStop,
   manualAlertActive = false,
+  manualAlertStatus = "",
   inferenceRate = "—",
   inferenceMs,
   requestMs,
@@ -101,6 +102,7 @@ export default function AIRecognitionPanel({
         <button type="button" className="manual-alert-start" onClick={onManualAlertStart} disabled={manualAlertActive}>Trigger alert</button>
         <button type="button" className="manual-alert-stop" onClick={onManualAlertStop} disabled={!manualAlertActive}>Stop alert</button>
       </div>}
+      {manualMode && manualAlertStatus && <p className="manual-alert-status" role="status">{manualAlertStatus}</p>}
     </section>
   );
 }
