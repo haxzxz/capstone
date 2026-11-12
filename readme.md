@@ -91,9 +91,9 @@ Verify that the API gateway forwards `/api/*` to the on-site FastAPI server, tha
 
 ### 3. Configure the ESP32-S3
 
-For the physical ESP32-S3, follow [the hardware setup guide](hardware/README.md). Configure Wi-Fi credentials, the API address, GPIO pins, and alert timing in the dashboard's **ESP32 settings** panel while the board is connected by USB-C. The firmware stores these settings on the board; Wi-Fi carries the alert API requests during normal use.
+For the physical ESP32-S3, follow [the hardware setup guide](hardware/README.md). Configure Wi-Fi credentials, the API address, and GPIO pins in `hardware/src/main.cpp`, then build and upload the firmware. USB-C is used for power, programming, and serial logs; Wi-Fi carries alert API requests.
 
-Keep the API gateway and ESP32 settings aligned with the same FastAPI instance. If the computer is unavailable, the online dashboard may load but live detection and hardware alerts will not work.
+Keep the API gateway and the backend URL hardcoded in the ESP32 firmware pointed at the same FastAPI instance. If the computer is unavailable, the online dashboard may load but live detection and hardware alerts will not work.
 
 ## Research instrument data
 
@@ -130,7 +130,7 @@ Use `--device cpu` to force CPU inference, or pass a video file / stream URL wit
 
 ## ESP32-S3 alert hardware
 
-The `hardware` folder contains PlatformIO firmware for the physical ESP32-S3 with alert and ready indicator lights plus a passive piezo buzzer. See [the hardware setup guide](hardware/README.md) for wiring, Wi-Fi configuration, upload, and backend setup.
+The `hardware` folder contains PlatformIO firmware for the physical ESP32-S3 with a green ready LED, red alert LED, and passive piezo buzzer. See [the hardware setup guide](hardware/README.md) for wiring, Wi-Fi configuration, upload, and backend setup.
 
 The dashboard sends JPEG frames up to 640 pixels wide and checks for a frame every 5 ms (a nominal 200 sampling checks per second) while the camera is live. The browser preview stays at the camera's own frame rate; AI detection runs on sampled frames and returns bounding boxes and metrics. The browser skips a sampling tick while a previous detection request is still in progress, so the actual inference rate is limited by frame encoding, API, model processing, camera frame rate, and browser timer scheduling. The backend selects a usable GPU automatically and falls back to CPU if CUDA is unavailable or fails the startup warmup. GPU availability, selected device, and PyTorch CUDA runtime are exposed by `/api/health` and `/api/summary`; detection responses include model inference, API processing, and processed-frame-rate metrics. The dashboard measures browser round-trip time separately.
 

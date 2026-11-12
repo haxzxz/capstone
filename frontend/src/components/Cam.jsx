@@ -4,7 +4,6 @@ import AIRecognitionPanel from "./AIRecognitionPanel.jsx";
 import CameraFeed from "./CameraFeed.jsx";
 import ClockBadge from "./ClockBadge.jsx";
 import HardwareAlertNote from "./HardwareAlertNote.jsx";
-import HardwareSettings from "./HardwareSettings.jsx";
 import Icon from "./Icon.jsx";
 import RecentDetectionsPanel from "./RecentDetectionsPanel.jsx";
 import PerformanceDashboard from "./PerformanceDashboard.jsx";
@@ -524,7 +523,7 @@ export default function Cam() {
   />;
   const performanceDashboard = <PerformanceDashboard samples={performanceSamples} live={serviceState === "live"} />;
   const recentEventsPanel = <RecentDetectionsPanel events={events} unavailable={serviceState !== "live"} />;
-  const deviceSetupPanels = <><HardwareAlertNote /><HardwareSettings /></>;
+  const deviceSetupPanels = <HardwareAlertNote />;
   const openPanel = (panel) => {
     setActivePanel(panel);
     setMenuOpen(false);
@@ -592,7 +591,7 @@ export default function Cam() {
                 </button>
                 <button className="menu-option" type="button" onClick={() => openPanel("device")}>
                   <span className="menu-option-icon menu-option-device"><Icon name="camera" size={18} /></span>
-                  <span><strong>Device setup</strong><small>Camera and ESP32 settings</small></span>
+                  <span><strong>Device setup</strong><small>Camera and hardware status</small></span>
                 </button>
               </nav>}
             </div>

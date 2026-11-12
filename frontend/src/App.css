@@ -258,7 +258,6 @@
 .modal-close:hover { background: #f0f5f3; color: #168b68; }
 .modal-content { display: grid; min-height: 0; flex: 1 1 auto; grid-auto-rows: min-content; align-content: start; gap: 14px; overflow-x: hidden; overflow-y: auto; padding: 18px; overscroll-behavior: contain; scrollbar-gutter: stable; -webkit-overflow-scrolling: touch; }
 .modal-content > .panel,.modal-content > .ai-panel { width: 100%; }
-.modal-content > .hardware-settings { overflow: visible; }
 .modal-content .alerts-panel { padding: 18px; }
 .theme-dark .dashboard-modal { border-color: #344454; background: #111821; }
 .theme-dark .modal-heading { border-color: #2a3948; background: #18232f; }
@@ -440,30 +439,3 @@ html,body,#root { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
   .tools-menu-trigger { width: 34px; height: 34px; }
   .intro-status { gap: 5px; }
 }
-
-.hardware-settings { display: grid; gap: 13px; }
-.hardware-settings-copy { color: #8491a2; font-size: 10px; line-height: 1.55; }
-.hardware-connection-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 7px; border: 1px solid #e6ebf0; border-radius: 5px; color: #8794a3; font-size: 8px; font-weight: 750; letter-spacing: .04em; white-space: nowrap; }
-.hardware-connection-chip i { width: 6px; height: 6px; border-radius: 50%; background: #aab4bf; }
-.hardware-connection-chip.is-connected { border-color: #d9f0e7; background: #effaf5; color: #169d75; }
-.hardware-connection-chip.is-connected i { background: #20b987; }
-.hardware-settings-actions { display: flex; }
-.hardware-connect-button,.hardware-save-button { width: 100%; padding: 9px 11px; border: 1px solid #dfe7eb; border-radius: 6px; background: #fff; color: #526477; font: inherit; font-size: 10px; font-weight: 650; cursor: pointer; }
-.hardware-connect-button:hover { border-color: #cfe8df; background: #f6fbf9; color: #168b68; }
-.hardware-save-button { border-color: #20b889; background: #20b889; color: #fff; }
-.hardware-save-button:hover { border-color: #169d75; background: #169d75; }
-.hardware-connect-button:disabled,.hardware-save-button:disabled { opacity: .6; cursor: wait; }
-.hardware-settings-form { display: grid; gap: 10px; }
-.hardware-settings-form label { display: grid; gap: 5px; color: #788799; font-size: 9px; font-weight: 650; }
-.hardware-settings-form input { min-width: 0; width: 100%; padding: 8px; border: 1px solid #e3e9ef; border-radius: 5px; background: #fff; color: #34465a; font: inherit; font-size: 10px; }
-.hardware-settings-form input:focus { border-color: #20b889; outline: 2px solid rgba(32,184,137,.14); }
-.hardware-pin-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
-.hardware-advanced-settings { color: #68788b; font-size: 10px; }
-.hardware-advanced-settings summary { padding: 3px 0; cursor: pointer; }
-.hardware-advanced-settings .hardware-pin-grid { margin-top: 10px; }
-.hardware-settings-message { padding: 8px 9px; border-radius: 6px; background: #f3f7f8; color: #68788b; font-size: 9px; line-height: 1.5; }
-.hardware-settings-note { color: #9aa6b3; font-size: 8px; line-height: 1.5; }
-.theme-dark .hardware-settings-copy,.theme-dark .hardware-settings-form label,.theme-dark .hardware-advanced-settings { color: #a8b5c3; }
-.theme-dark .hardware-connect-button,.theme-dark .hardware-settings-form input { border-color: #334252; background: #1b2733; color: #d2dde8; }
-.theme-dark .hardware-settings-message { background: #202d39; color: #aab7c6; }
-.theme-dark .hardware-settings-note { color: #8998a8; }

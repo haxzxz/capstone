@@ -1,6 +1,6 @@
 # Physical ESP32-S3 alert controller
 
-This firmware is for the physical ESP32-S3, two indicator lights, and one passive piezo buzzer. USB-C powers the board, uploads firmware, and provides serial logs. The ESP32 uses Wi-Fi to poll the FastAPI service; USB alone does not carry alert requests.
+This firmware is for the physical ESP32-S3, green and red LEDs driven through transistors, and a passive piezo buzzer. USB-C powers and programs the board and provides serial logs. The ESP32 uses Wi-Fi to poll FastAPI; USB does not carry alert requests.
 
 ## Wiring
 
@@ -8,34 +8,27 @@ Disconnect USB power before wiring.
 
 | ESP32-S3 | Connection |
 | --- | --- |
-| GPIO 17 | 220 Ω resistor, then alert LED anode (long leg) |
-| GPIO 18 | 220 Ω resistor, then ready LED anode (long leg) |
-| GND | Both LED cathodes (short legs) |
+| GPIO 17 | Green LED transistor control input |
+| GPIO 18 | Red LED transistor control input |
 | GPIO 36 | Piezo positive (+) |
 | GND | Piezo negative (−) |
 
-The firmware flashes the alert light and sounds the piezo for five seconds when the backend reports an active alert. The ready light stays on while idle and turns off during the alert. If the buzzer is not a passive piezo or draws more current than a GPIO can safely provide, use an appropriate driver circuit.
-
-**Check the board variant before using GPIO 36:** some ESP32-S3 modules use GPIO 33–37 internally for octal flash or PSRAM, making GPIO 36 unavailable. If your board uses one of those modules, move the piezo signal wire to a free GPIO and update `BUZZER_PIN` to match.
+The green LED indicates the board can reach the backend. During an alert, green turns off while red flashes and the piezo sounds for five seconds. Adjust `BUZZER_VOLUME_PERCENT` near the top of `src/main.cpp` from `0` (silent) to `100` (strongest PWM setting), then upload again. Perceived loudness may not change linearly with the number. The firmware expects a passive piezo. The LED transistors should be wired as drivers with a shared ground; do not power the LEDs directly from the GPIO pins. Some ESP32-S3 board variants reserve GPIO 36 for flash or PSRAM. If yours does, choose a free GPIO and change `BUZZER_PIN` in `src/main.cpp` to match.
 
 ## Configure and run
 
-1. Upload the firmware from this PlatformIO project. It stores configuration in ESP32 non-volatile memory; Wi-Fi credentials are no longer embedded in `main.cpp`.
-2. Start FastAPI with hardware alerts enabled:
+1. The Wi-Fi name, password, and backend URL are hardcoded near the top of `src/main.cpp`. Update `WIFI_SSID`, `WIFI_PASSWORD`, and `BACKEND_API_URL` there to match your network and computer's stable LAN address on port 8000.
+2. The current pin assignments are green GPIO 17, red GPIO 18, and buzzer GPIO 36. If your wires differ, update `READY_LED_PIN`, `ALERT_LED_PIN`, and `BUZZER_PIN` in the same file.
+3. Build and upload this PlatformIO project again. Any change to these settings requires another upload.
+4. In PowerShell, start FastAPI with hardware alerts enabled:
 
    ```powershell
+   cd backend
    $env:HARDWARE_ALERT_ENABLED = "1"
    uvicorn main:app --host 0.0.0.0 --port 8000
    ```
 
-3. Run the React dashboard at `http://localhost:5173` in Chrome or Edge. Connect the ESP32 by USB-C and close PlatformIO's Serial Monitor so the browser can open its COM port.
-4. In the dashboard's **ESP32 settings** panel, choose **Connect ESP32 by USB**, select the ESP32 serial port, enter the Wi-Fi network and password, set the computer's stable LAN address as the backend URL (for example `http://192.168.1.50:8000`), and confirm the GPIO assignments. Click **Save settings to ESP32**. The settings are stored on the board and survive power loss; the Wi-Fi password is not read back into the page.
-5. After the board reconnects to Wi-Fi and the serial log says `Backend API connected.`, start the camera. Detection alerts and the dashboard's manual **Trigger alert** control activate the alert light and piezo for the configured duration.
-
-If the ESP32 reports `Backend poll failed: connection refused`, check that the saved backend address uses the on-site computer's current LAN address and port 8000 (for example, `http://192.168.100.13:8000`), that FastAPI is running with `--host 0.0.0.0 --port 8000`, and that the computer firewall allows port 8000 on the private network. Check `/api/health` for `hardware_alert_enabled: true`; the backend defaults this setting to false unless `HARDWARE_ALERT_ENABLED=1` is set before startup.
-
-After uploading firmware, PlatformIO releases the USB serial port when upload finishes. Close Serial Monitor, unplug and reconnect the board if needed, then select its current COM port in the dashboard. The browser and PlatformIO cannot use the same COM port at the same time.
+5. Open PlatformIO's Serial Monitor at 115200 baud. Look for `Wi-Fi connected` and `Backend API connected.` The disconnect reason code is printed when Wi-Fi drops. Close the monitor before uploading again.
+6. Start the dashboard and camera. When its alert condition triggers, the ESP32 flashes the red LED and sounds the piezo; green turns off. It then acknowledges the alert.
 
 Allow port 8000 through the computer's firewall for the private network. Keep the backend on a trusted local network; do not expose port 8000 directly to the public internet.
-
-The dashboard can configure the board only while the computer is connected to it over USB. Use localhost or HTTPS in Chrome/Edge because the browser's USB serial feature requires a secure page context. Keep the USB cable connected for future edits; unplugging it after saving does not affect normal Wi-Fi alert operation.
