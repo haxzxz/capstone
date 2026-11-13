@@ -15,6 +15,7 @@ from csv import writer
 from io import StringIO
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from pydantic import BaseModel, Field
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from cryptography.fernet import Fernet
@@ -50,7 +51,7 @@ app = FastAPI(title="School Zone Camera Detection API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(","),
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT"],
     allow_headers=["*"],
 )
 
@@ -64,6 +65,13 @@ alert_controller = PedestrianAlertController(
     ALERT_TWO_PERSON_DWELL_SECONDS,
     ALERT_THREE_OR_MORE_DWELL_SECONDS,
 )
+alert_settings = {
+    "confidence_threshold": CONFIDENCE_THRESHOLD,
+    "one_person_dwell_seconds": ALERT_ONE_PERSON_DWELL_SECONDS,
+    "two_person_dwell_seconds": ALERT_TWO_PERSON_DWELL_SECONDS,
+    "three_or_more_dwell_seconds": ALERT_THREE_OR_MORE_DWELL_SECONDS,
+    "standby_beep_delay_seconds": STANDBY_BEEP_DELAY_SECONDS,
+}
 # Keep hardware delivery independent from browser audio playback acknowledgments.
 hardware_alert_active = False
 
@@ -161,6 +169,11 @@ def initialize_database():
             INSERT OR IGNORE INTO dashboard_stats (id, people_seen) VALUES (1, 0);
             """
         )
+        connection.execute("CREATE TABLE IF NOT EXISTS alert_settings (key TEXT PRIMARY KEY, value REAL NOT NULL)")
+        rows = connection.execute("SELECT key, value FROM alert_settings").fetchall()
+        for row in rows:
+            if row["key"] in alert_settings:
+                alert_settings[row["key"]] = float(row["value"])
         connection.commit()
 
 
@@ -234,6 +247,45 @@ def get_telemetry_cipher():
 
 
 initialize_database()
+
+
+def apply_alert_settings():
+    global CONFIDENCE_THRESHOLD, STANDBY_BEEP_DELAY_SECONDS
+    CONFIDENCE_THRESHOLD = alert_settings["confidence_threshold"]
+    STANDBY_BEEP_DELAY_SECONDS = alert_settings["standby_beep_delay_seconds"]
+    alert_controller.one_person_seconds = alert_settings["one_person_dwell_seconds"]
+    alert_controller.two_persons_seconds = alert_settings["two_person_dwell_seconds"]
+    alert_controller.three_or_more_seconds = alert_settings["three_or_more_dwell_seconds"]
+
+
+apply_alert_settings()
+
+
+class AlertSettingsUpdate(BaseModel):
+    confidence_threshold: float = Field(ge=0.0, le=1.0)
+    one_person_dwell_seconds: float = Field(ge=0.0, le=300.0)
+    two_person_dwell_seconds: float = Field(ge=0.0, le=300.0)
+    three_or_more_dwell_seconds: float = Field(ge=0.0, le=300.0)
+    standby_beep_delay_seconds: float = Field(ge=0.0, le=60.0)
+
+
+@app.get("/api/alert-settings")
+def get_alert_settings():
+    return dict(alert_settings)
+
+
+@app.put("/api/alert-settings")
+def update_alert_settings(settings: AlertSettingsUpdate):
+    updated = settings.model_dump()
+    with closing(connect_database()) as connection:
+        connection.executemany(
+            "INSERT INTO alert_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            list(updated.items()),
+        )
+        connection.commit()
+    alert_settings.update(updated)
+    apply_alert_settings()
+    return dict(alert_settings)
 
 
 def get_model():

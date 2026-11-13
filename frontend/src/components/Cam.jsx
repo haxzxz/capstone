@@ -7,6 +7,7 @@ import HardwareAlertNote from "./HardwareAlertNote.jsx";
 import Icon from "./Icon.jsx";
 import RecentDetectionsPanel from "./RecentDetectionsPanel.jsx";
 import PerformanceDashboard from "./PerformanceDashboard.jsx";
+import AlertSettingsPanel from "./AlertSettingsPanel.jsx";
 import { apiUrl } from "../api.js";
 
 const DETECTION_ZONE_STORAGE_KEY = "school-zone-detection-area";
@@ -589,6 +590,10 @@ export default function Cam() {
                   <span className="menu-option-icon menu-option-performance"><Icon name="trend" size={18} /></span>
                   <span><strong>System performance</strong><small>Live processing graphs</small></span>
                 </button>
+                <button className="menu-option" type="button" onClick={() => openPanel("alerts")}>
+                  <span className="menu-option-icon menu-option-alert-settings"><Icon name="alert" size={18} /></span>
+                  <span><strong>Alert settings</strong><small>Detection thresholds and timing</small></span>
+                </button>
                 <button className="menu-option" type="button" onClick={() => openPanel("device")}>
                   <span className="menu-option-icon menu-option-device"><Icon name="camera" size={18} /></span>
                   <span><strong>Device setup</strong><small>Camera and hardware status</small></span>
@@ -637,13 +642,14 @@ export default function Cam() {
         {activePanel && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setActivePanel(null); }}>
           <section className="dashboard-modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-modal-title">
             <div className="modal-heading">
-              <div><div className="section-kicker">DASHBOARD DETAILS</div><h2 id="dashboard-modal-title">{activePanel === "status" ? "System status" : activePanel === "events" ? "Event activity" : activePanel === "performance" ? "System performance" : "Device setup"}</h2></div>
+              <div><div className="section-kicker">DASHBOARD DETAILS</div><h2 id="dashboard-modal-title">{activePanel === "status" ? "System status" : activePanel === "events" ? "Event activity" : activePanel === "performance" ? "System performance" : activePanel === "alerts" ? "Alert settings" : "Device setup"}</h2></div>
               <button className="modal-close" type="button" aria-label="Close dialog" onClick={() => setActivePanel(null)}>×</button>
             </div>
             <div className="modal-content">
             {activePanel === "status" && systemStatusPanel}
             {activePanel === "events" && recentEventsPanel}
             {activePanel === "performance" && performanceDashboard}
+            {activePanel === "alerts" && <AlertSettingsPanel />}
             {activePanel === "device" && deviceSetupPanels}
             </div>
           </section>

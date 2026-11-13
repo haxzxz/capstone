@@ -33,6 +33,7 @@ Open the Vite URL (normally `http://localhost:5173`) and allow camera access. Vi
 - `ALERT_TWO_PERSON_DWELL_SECONDS`: wait time for two detected pedestrians (default `8`).
 - `ALERT_THREE_OR_MORE_DWELL_SECONDS`: wait time for three or more detected pedestrians (default `5`). If the group size changes during a countdown, elapsed time is preserved and the current count's wait time applies.
 - `HARDWARE_ALERT_ENABLED`: set to `1` when the ESP32 should receive automatic and manual dashboard alerts (default `false`). The backend's `/api/health` response reports whether hardware alerts are enabled.
+- Detection confidence, pedestrian dwell delays, and standby beep interval can be changed from **Dashboard menu → Alert settings**. These website changes are stored in the backend SQLite database and apply immediately. The hardware alert enable switch and ESP32 wiring/pin behavior remain deployment and firmware settings.
 - The alert sound `backend/source/beep3.mp3` plays once when the countdown completes. No new countdown starts until the browser finishes playing the alert sound.
 - `backend/source/beep1.mp3` repeats during standby and while an alert countdown is pending, with a fixed one-second delay after each beep finishes. Standby beeps resume after `beep3` finishes.
 - `FRONTEND_ORIGINS`: comma-separated browser origins permitted by the API (default includes localhost:5173).
