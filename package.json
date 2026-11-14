@@ -1,0 +1,16 @@
+{
+  "name": "school-zone-safety-monitor-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-first Windows desktop launcher for the School Zone Safety Monitor",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "desktop:build": "npm --prefix frontend run build",
+    "desktop:start": "npm run desktop:build && electron .",
+    "desktop:dev": "electron . --dev",
+    "backend:setup": "powershell -ExecutionPolicy Bypass -File backend/setup_backend.ps1"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0"
+  }
+}

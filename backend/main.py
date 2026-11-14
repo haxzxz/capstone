@@ -38,7 +38,8 @@ TELEMETRY_ENCRYPTION_KEY = os.getenv("TELEMETRY_ENCRYPTION_KEY", "").strip()
 TELEMETRY_KEY_PATH = Path(os.getenv("TELEMETRY_KEY_PATH", Path(__file__).with_name("telemetry.key")))
 MAX_FRAME_BYTES = 8 * 1024 * 1024
 DATABASE_PATH = Path(os.getenv("DATABASE_PATH", Path(__file__).with_name("school_zone.db")))
-EXPORT_DIRECTORY = Path(__file__).with_name("export")
+EXPORT_DIRECTORY = Path(os.getenv("EXPORT_DIRECTORY", Path(__file__).with_name("export")))
+DATA_RETENTION_DAYS = max(0, int(os.getenv("DATA_RETENTION_DAYS", "0")))
 ALERT_ONE_PERSON_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_ONE_PERSON_DWELL_SECONDS", "12")))
 ALERT_TWO_PERSON_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_TWO_PERSON_DWELL_SECONDS", "8")))
 ALERT_THREE_OR_MORE_DWELL_SECONDS = max(0.0, float(os.getenv("ALERT_THREE_OR_MORE_DWELL_SECONDS", "5")))
@@ -59,6 +60,7 @@ model = None
 active_device = None
 started_at = time.monotonic()
 frame_times = deque(maxlen=30)
+last_retention_cleanup = 0.0
 person_was_present = False
 alert_controller = PedestrianAlertController(
     ALERT_ONE_PERSON_DWELL_SECONDS,
@@ -177,6 +179,19 @@ def initialize_database():
         connection.commit()
 
 
+def cleanup_expired_records():
+    """Enforce configured retention for event and per-frame telemetry records."""
+    if not DATA_RETENTION_DAYS:
+        return
+    cutoff = datetime.now(timezone.utc).timestamp() - DATA_RETENTION_DAYS * 86400
+    cutoff_iso = datetime.fromtimestamp(cutoff, timezone.utc).isoformat()
+    with closing(connect_database()) as connection:
+        connection.execute("DELETE FROM telemetry_records WHERE timestamp_utc < ?", (cutoff_iso,))
+        # Event IDs are UTC ISO timestamps; the display-only event time is a local HH:MM:SS string.
+        connection.execute("DELETE FROM detection_events WHERE id < ?", (cutoff_iso,))
+        connection.commit()
+
+
 def get_recent_events(limit=100):
     """Return newest-first event rows in the camelCase shape expected by the dashboard."""
     with closing(connect_database()) as connection:
@@ -192,19 +207,27 @@ def get_recent_events(limit=100):
 
 
 def get_people_seen():
-    """Read the persisted cumulative detection count shown in dashboard summaries."""
+    """Sum detections still inside the configured telemetry retention window."""
     with closing(connect_database()) as connection:
-        row = connection.execute("SELECT people_seen FROM dashboard_stats WHERE id = 1").fetchone()
+        row = connection.execute("SELECT COALESCE(SUM(detection_count), 0) AS people_seen FROM telemetry_records").fetchone()
     return row["people_seen"]
 
 
 def save_telemetry(timestamp, fps, detections, detection_zone, inference_ms):
     """Append one record per processed frame; intrusion stays NULL when no zone is configured."""
+    global last_retention_cleanup
     intrusion = bool(detections) if detection_zone else None
     mean_confidence = (
         sum(item["confidence"] for item in detections) / len(detections) if detections else None
     )
     with closing(connect_database()) as connection:
+        now = time.monotonic()
+        if DATA_RETENTION_DAYS and now - last_retention_cleanup >= 3600:
+            cutoff = datetime.now(timezone.utc).timestamp() - DATA_RETENTION_DAYS * 86400
+            cutoff_iso = datetime.fromtimestamp(cutoff, timezone.utc).isoformat()
+            connection.execute("DELETE FROM telemetry_records WHERE timestamp_utc < ?", (cutoff_iso,))
+            connection.execute("DELETE FROM detection_events WHERE id < ?", (cutoff_iso,))
+            last_retention_cleanup = now
         connection.execute(
             """
             INSERT INTO telemetry_records (
@@ -247,6 +270,7 @@ def get_telemetry_cipher():
 
 
 initialize_database()
+cleanup_expired_records()
 
 
 def apply_alert_settings():
@@ -549,7 +573,6 @@ async def detect(request: Request):
         hardware_alert_active = True
 
     with closing(connect_database()) as connection:
-        connection.execute("UPDATE dashboard_stats SET people_seen = people_seen + ? WHERE id = 1", (len(detections),))
         if event:
             connection.execute(
                 "INSERT INTO detection_events (id, label, time, confidence, zone_result) VALUES (?, ?, ?, ?, ?)",

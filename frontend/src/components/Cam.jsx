@@ -540,7 +540,7 @@ export default function Cam() {
             <p>Real-time pedestrian safety monitoring and AI event overview.</p>
           </div>
           <div className="intro-status">
-            {!isInstalled && <div className="install-action-wrap">
+            {!window.__SCHOOL_ZONE_DESKTOP__ && !isInstalled && <div className="install-action-wrap">
               <button type="button" className="install-app-button" onClick={installWebsite} aria-expanded={installHelp}>
                 Install app
               </button>

@@ -1,0 +1,9 @@
+{
+  "allowEsp32LanAccess": false,
+  "hardwareAlertsEnabled": false,
+  "retentionDays": 0,
+  "apiPort": 8000,
+  "pythonExecutable": "",
+  "model": "yolo11m.pt",
+  "device": "auto"
+}

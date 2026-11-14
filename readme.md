@@ -2,33 +2,35 @@
 
 The React dashboard keeps the browser camera preview local and sends sampled frames to a Python API for YOLO person detection. The API returns detection boxes and live metrics; React draws the boxes over the live preview instead of downloading a new annotated image for every result.
 
-## Future rebuild idea: local desktop application
+## Local-first desktop application
 
-This section records a possible future direction for the project. It is a planning note, not a description of the current implementation.
+The Windows desktop shell reuses this React dashboard and Python API. Electron starts and stops the backend, serves the built interface locally, and keeps the API on loopback by default. It is designed for on-site use without cloud processing. See [DESKTOP.md](DESKTOP.md) for setup, local data location, retention configuration, deletion steps, and the optional ESP32 LAN configuration.
 
 ### Goal
 
-If the project is rebuilt, consider making it a local-first desktop application for use on the designated on-site computer. The camera, user interface, YOLO inference, event database, and ESP32-S3 alert connection should operate on that computer and its local network. Remote access and cloud processing should be disabled by default. This may fit the research context and UREC review better by keeping camera frames and event data on-site, provided the final approved protocol and safeguards are followed.
+The desktop app runs on the designated on-site computer. Camera preview and browser capture run in the app window; sampled frames are sent to the local YOLO API. Event database, alert settings, and telemetry remain on that computer. ESP32 access is off by default and can be enabled only for the trusted local network. Align data collection, access, retention, and deletion with the approved UREC protocol.
 
 ### Current app versus desktop wrapper
 
 - **Current local browser setup:** Run the Python FastAPI backend and React dashboard on the same computer, then open the dashboard at a localhost URL. The browser obtains camera access, shows the live preview, and sends sampled frames to the local API. The Python backend runs YOLO and stores event history in local SQLite. The ESP32 can connect to the backend over the school LAN. This already avoids sending frames to a cloud service when used entirely on that computer.
-- **Desktop wrapper:** Package the existing React dashboard in a desktop shell and have the desktop app launch/manage the Python backend. Aim for a one-click startup and shutdown, a dedicated app window, clearer local configuration, and less need for operators to work in terminals or browser tabs. A wrapper can reuse much of the current frontend and backend; it does not by itself improve model accuracy, privacy, or ethics.
+- **Desktop wrapper:** The Electron shell now launches/manages the Python backend and displays the dashboard in a dedicated window. It streamlines startup and shutdown; setup still requires Node.js and a prepared Python environment. A wrapper does not by itself improve model accuracy, privacy, or ethics.
 - **Possible later extension:** If the system should access the hosted computer's camera directly without browser media APIs, evaluate moving camera capture into a native or backend component. This is a larger architectural change than simply wrapping the current dashboard and should be assessed for camera compatibility and performance.
 
 ### Research ethics and privacy requirements to plan
 
 Local execution is a data-location choice, not an ethics approval or a complete safeguard. Before use, align the implementation and operating procedure with the UREC-approved protocol. Document camera placement and purpose, participant notice/consent as required by the committee, whether footage is stored or only processed live, what event/telemetry data is retained, who can access the computer and database, retention duration, secure backup, and deletion procedures. Minimize collection of identifiable footage and avoid retaining it unless the approved protocol requires it. Keep the computer physically secured and account access limited to authorized operators. The current API has no built-in user login, so do not expose it through an unauthenticated network tunnel or public endpoint.
 
-### Rebuild direction and open decisions
+### Current scope and later decisions
 
-Keep the local browser deployment as a viable simpler option unless one-click operation, reduced operator setup, or tighter control over the app lifecycle justifies a desktop wrapper. If rebuilding, preserve the existing React interface, Python YOLO service, SQLite history, settings, exports, and ESP32 integration where practical. Prefer local-only API binding by default, persistent data in a clearly identified local application-data directory, explicit controls for starting/stopping camera processing, and visible status for camera, inference device, database, and hardware alerts. Decide whether the desktop app is Windows-only or cross-platform, whether the camera is selected in the browser UI or captured by the backend/native app, how updates and backups work, and which data the approved study actually needs to retain.
+The current desktop source expects Node.js and an already prepared Python environment; it is not yet a standalone installer. It preserves the React UI, API, SQLite history, settings, exports, and ESP32 endpoints. A future step could bundle Python and model dependencies, or move capture into a native/backend camera component. Select the exact retention period and network exposure only after confirming the approved protocol and deployment needs.
 
-### Prompt to resume this idea later
+## Windows desktop app
 
-> Help me rebuild the School Zone Safety Monitor as a local-first desktop app. Read the “Future rebuild idea: local desktop application” section in the README and inspect the current code before proposing or making changes. Keep camera processing, YOLO inference, SQLite data, dashboard, and ESP32-S3 integration on the designated computer/local network by default; do not add cloud processing or public remote access. Preserve existing features where practical. Plan for one-click startup/shutdown and operator-friendly status/configuration. Treat UREC requirements as constraints: design for data minimization, clear retention/deletion, restricted access, and no footage retention unless the approved protocol requires it. First identify architecture and migration steps, then implement the agreed scope.
+The desktop app wraps the existing React dashboard and Python API in an Electron window. It starts and stops the API with the app, serves the interface locally, and binds the API to `127.0.0.1` by default. It does not require a cloud service. The browser-based dashboard remains available for development.
 
-## Run locally
+Follow [DESKTOP.md](DESKTOP.md) for setup and operator instructions. The desktop source currently expects Node.js and the prepared Python environment on the designated computer; it is not yet a standalone installer. Camera frames are processed in memory. SQLite records, encrypted telemetry key, and exports are stored in the user's application-data folder. Set the retention period in the generated `desktop-config.json` according to the UREC-approved protocol.
+
+## Run the browser development version
 
 Set up and start the backend in one terminal. The setup script detects the NVIDIA GPU architecture, checks whether the existing PyTorch can run on it, then selects a compatible CUDA wheel or a CPU fallback. The prebuilt wheels bundle the CUDA runtime, so a separate CUDA Toolkit installation (`nvcc`) is not needed.
 
@@ -36,7 +38,7 @@ Set up and start the backend in one terminal. The setup script detects the NVIDI
 cd backend
 .\setup_backend.ps1
 $env:HARDWARE_ALERT_ENABLED = "1"
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Start the frontend in another terminal:

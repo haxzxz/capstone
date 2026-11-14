@@ -21,8 +21,30 @@ if ($LASTEXITCODE -ne 0) { throw "Could not upgrade pip." }
 if ($LASTEXITCODE -ne 0) { throw "Could not install backend requirements." }
 
 function Test-TorchCuda {
-    # Availability alone is insufficient: allocate and synchronize a CUDA tensor to catch driver/runtime mismatches.
-    $Probe = "import torch; assert torch.cuda.is_available(); x=torch.ones((16,), device='cuda:0'); torch.cuda.synchronize(); print('CUDA ready:', torch.__version__, torch.cuda.get_device_name(0), torch.cuda.get_device_capability(0))"
+    # Exercise both CUDA and cuDNN so a wheel is not accepted if model inference will fail later.
+    # The first probe may run against a CPU-only wheel installed by requirements; that is expected.
+    $Probe = @'
+import sys
+import torch
+
+print("PyTorch:", torch.__version__, "CUDA wheel:", torch.version.cuda)
+if not torch.cuda.is_available():
+    print("CUDA is not available in this PyTorch build or with the installed NVIDIA driver.")
+    sys.exit(2)
+
+try:
+    device = torch.device("cuda:0")
+    sample = torch.ones((1, 3, 64, 64), device=device)
+    convolution = torch.nn.Conv2d(3, 8, kernel_size=3, padding=1).to(device)
+    output = convolution(sample)
+    torch.cuda.synchronize(device)
+    if not torch.isfinite(output).all().item():
+        raise RuntimeError("CUDA/cuDNN convolution produced non-finite values.")
+    print("CUDA and cuDNN ready:", torch.cuda.get_device_name(0), torch.cuda.get_device_capability(0))
+except Exception as error:
+    print("CUDA/cuDNN probe failed:", repr(error))
+    sys.exit(1)
+'@
     & $VenvPython -c $Probe | Out-Host
     return $LASTEXITCODE -eq 0
 }
