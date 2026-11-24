@@ -1,3 +1,6 @@
+# THIS REPOSITORY IS ARCHIVED AND IS OUTDATED!!!
+# HERE IS THE <a href= "https://github.com/Czyruss327/SAFETawid>UPDATED REPO</a>
+
 # School Zone Safety Monitor
 
 The React dashboard keeps the browser camera preview local and sends sampled frames to a Python API for YOLO person detection. The API returns detection boxes and live metrics; React draws the boxes over the live preview instead of downloading a new annotated image for every result.
@@ -5,14 +8,18 @@ The React dashboard keeps the browser camera preview local and sends sampled fra
 ## Local-first desktop application
 
 The Windows desktop shell reuses this React dashboard and Python API. Electron starts and stops the backend, serves the built interface locally, and keeps the API on loopback by default. It is designed for on-site use without cloud processing. See [DESKTOP.md](DESKTOP.md) for setup, local data location, retention configuration, deletion steps, and the optional ESP32 LAN configuration.
-
+ 
 ### Goal
 
-The desktop app runs on the designated on-site computer. Camera preview and browser capture run in the app window; sampled frames are sent to the local YOLO API. Event database, alert settings, and telemetry remain on that computer. ESP32 access is off by default and can be enabled only for the trusted local network. Align data collection, access, retention, and deletion with the approved UREC protocol.
+The desktop app runs on the designated on-site computer. Camera preview and browser capture run in the app window; sampled frames are sent to the local YOLO API. Event database, alert settings, and telemetry remain on that computer. ESP32 access is off by default and can be enabled only for the trusted local network. Align data collection, access, retention, and deletion with the approved UREC protocol.             
 
 ### Current app versus desktop wrapper
 
 - **Current local browser setup:** Run the Python FastAPI backend and React dashboard on the same computer, then open the dashboard at a localhost URL. The browser obtains camera access, shows the live preview, and sends sampled frames to the local API. The Python backend runs YOLO and stores event history in local SQLite. The ESP32 can connect to the backend over the school LAN. This already avoids sending frames to a cloud service when used entirely on that computer.
+
+
+
+
 - **Desktop wrapper:** The Electron shell now launches/manages the Python backend and displays the dashboard in a dedicated window. It streamlines startup and shutdown; setup still requires Node.js and a prepared Python environment. A wrapper does not by itself improve model accuracy, privacy, or ethics.
 - **Possible later extension:** If the system should access the hosted computer's camera directly without browser media APIs, evaluate moving camera capture into a native or backend component. This is a larger architectural change than simply wrapping the current dashboard and should be assessed for camera compatibility and performance.
 
