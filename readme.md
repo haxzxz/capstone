@@ -1,5 +1,4 @@
-# THIS REPOSITORY IS ARCHIVED AND IS OUTDATED!!!
-# HERE IS THE <a href= "https://github.com/Czyruss327/SAFETawid>UPDATED REPO</a>
+# THIS REPOSITORY IS ARCHIVED AND IS OUTDATED!!! <br> HERE IS THE <a href= "https://github.com/Czyruss327/SAFETawid">UPDATED REPO</a>
 
 # School Zone Safety Monitor
 
